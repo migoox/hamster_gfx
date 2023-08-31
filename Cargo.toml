@@ -1,5 +1,5 @@
 [package]
-name = "hamster-rustygfx"
+name = "hamster_gfx"
 version = "0.1.0"
 edition = "2021"
 

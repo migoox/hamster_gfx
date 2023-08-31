@@ -3,7 +3,7 @@ use std::time::Instant;
 use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
-use hamster_rustygfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout};
+use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout};
 
 const SCREEN_WIDTH: u32 = 1600;
 const SCREEN_HEIGHT: u32 = 1200;
@@ -51,8 +51,8 @@ fn main() {
     let mut clock: Instant;
 
     // OPENGL WRAPPER TEST
-    use hamster_rustygfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
-    use hamster_rustygfx::renderer::Bindable;
+    use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
+    use hamster_gfx::renderer::Bindable;
     let vs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.vert"), gl::VERTEX_SHADER).unwrap();
     let fs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.frag"), gl::FRAGMENT_SHADER).unwrap();
     let program = ShaderProgram::link(&vs, &fs);
