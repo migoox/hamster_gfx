@@ -1,5 +1,5 @@
 #version 400
-
+// from: https://github.com/cohaereo/egui_glfw_gl
 uniform vec2 u_screen_size;
 
 // from attrib ptr

@@ -1,4 +1,5 @@
 #version 400
+// from: https://github.com/cohaereo/egui_glfw_gl
 
 uniform sampler2D u_sampler;
 

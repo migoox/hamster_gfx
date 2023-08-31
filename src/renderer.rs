@@ -7,6 +7,7 @@ use std::io::Read;
 use std::collections::HashMap;
 use std::path::Path;
 use image::ImageError;
+use crate::errors::check_opengl_errors;
 
 struct Binder {
     curr_id: GLuint,
@@ -146,6 +147,9 @@ impl Shader {
             gl::CompileShader(shader);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         let mut status = gl::FALSE as GLint;
         unsafe {
             gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
@@ -216,10 +220,16 @@ impl ShaderProgram {
             gl::LinkProgram(program);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         let mut status = gl::FALSE as GLint;
         unsafe {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
         }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
 
         // If program cannot be linked -> panic
         if status != (gl::TRUE as GLint) {
@@ -316,6 +326,9 @@ impl Texture {
             gl::GenTextures(0, &mut id);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         let result = Texture {
             id,
             target,
@@ -331,6 +344,9 @@ impl Texture {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, result.filtering as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, result.filtering as GLint);
         }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
 
         result
     }
@@ -359,6 +375,9 @@ impl Texture {
             );
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         Ok(())
     }
 
@@ -386,6 +405,10 @@ impl Texture {
                 img.as_bytes().as_ptr() as *const _,
             );
         }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         Ok(())
     }
 
@@ -525,6 +548,9 @@ impl Buffer {
             gl::GenBuffers(1, &mut id);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         let result = Buffer {
             id,
             target,
@@ -545,6 +571,9 @@ impl Buffer {
             gl::BufferData(target, size as GLsizeiptr, data, usage);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         result
     }
 
@@ -561,6 +590,9 @@ impl Buffer {
             gl::BufferData(self.target, size as _, data, self.usage);
         }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         Ok(())
     }
 
@@ -571,6 +603,9 @@ impl Buffer {
         unsafe {
             gl::BufferSubData(self.target, offset as _, size as _, data);
         }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
 
         Ok(())
     }
@@ -628,6 +663,9 @@ impl VertexArray {
 
         unsafe { gl::GenVertexArrays(1, &mut id); }
 
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
         let result = VertexArray {
             id,
             vbo_info: HashMap::new(),
@@ -657,6 +695,9 @@ impl VertexArray {
                 );
                 gl::VertexAttribBinding(*attrib_index, self.curr_binding_index);
                 gl::EnableVertexAttribArray(*attrib_index);
+
+                #[cfg(feature = "gl_debug")]
+                check_opengl_errors();
             }
             relative_offset += attrib.get_size_in_bytes() as GLuint;
         }
@@ -677,6 +718,8 @@ impl VertexArray {
                 self.vbo_info.get(&vbo.id).unwrap().1,
                 self.vbo_info.get(&vbo.id).unwrap().0,
             );
+            #[cfg(feature = "gl_debug")]
+            check_opengl_errors();
         }
     }
 
