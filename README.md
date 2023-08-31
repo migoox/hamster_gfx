@@ -1,1 +1,1 @@
-# hamster_rustygfx
+# hamster_gfx
