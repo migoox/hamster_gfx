@@ -270,7 +270,7 @@ impl ShaderProgram {
         Ok(())
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform1ui(&self, name: &str, v0: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -285,7 +285,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform2ui(&self, name: &str, v0: u32, v1: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -301,7 +301,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform1i(&self, name: &str, v0: i32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -316,7 +316,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform2i(&self, name: &str, v0: i32, v1: i32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -332,6 +332,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform1f(&self, name: &str, v0: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -346,7 +347,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform2f(&self, name: &str, v0: f32, v1: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -362,7 +363,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform3f(&self, name: &str, v0: f32, v1: f32, v2: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
@@ -379,7 +380,7 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
-    // This function is a gl::ProgramUniform* wrapper.
+    /// This function is a gl::ProgramUniform* wrapper.
     pub fn set_uniform4f(&self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
