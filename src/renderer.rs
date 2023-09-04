@@ -266,7 +266,7 @@ impl ShaderProgram {
     /// This function calls set_uniform1i, which uses gl::ProgramUniform* command family, which means
     /// that there is no need to bind ShaderProgram, so this function won't bind anything.
     pub fn activate_sampler(&self, name: &str, unit: u32) -> Result<(), String> {
-        self.set_uniform1i(name, unit as i32);
+        self.set_uniform1ui(name, unit);
         Ok(())
     }
 
