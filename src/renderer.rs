@@ -266,7 +266,7 @@ impl ShaderProgram {
     /// This function calls set_uniform1i, which uses gl::ProgramUniform* command family, which means
     /// that there is no need to bind ShaderProgram, so this function won't bind anything.
     pub fn activate_sampler(&self, name: &str, unit: u32) -> Result<(), String> {
-        self.set_uniform1ui(name, unit);
+        self.set_uniform1i(name, unit as i32);
         Ok(())
     }
 
@@ -274,7 +274,7 @@ impl ShaderProgram {
     pub fn set_uniform1ui(&self, name: &str, v0: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
-            gl::ProgramUniform1ui(
+                gl::ProgramUniform1ui(
                 self.id,
                 gl::GetUniformLocation(self.id, cname.as_ptr()),
                 v0,
@@ -681,7 +681,7 @@ impl Buffer {
     }
 
     /// Builds and binds OpenGL Buffer Object (uses gl::BufferData).
-    pub fn build(target: GLenum, size: u32, usage: GLenum, data: *const c_void) -> Buffer {
+    pub fn build(target: GLenum, size: usize, usage: GLenum, data: *const c_void) -> Buffer {
         let mut result = Self::new(target, usage);
 
         result.bind();
@@ -697,13 +697,13 @@ impl Buffer {
     }
 
     /// Builds empty buffer with the given `size` (uses gl::BufferData).
-    pub fn build_empty(target: GLenum, usage: GLenum, size: u32) -> Buffer {
+    pub fn build_empty(target: GLenum, usage: GLenum, size: usize) -> Buffer {
         Self::build(target, size, usage, core::ptr::null())
     }
 
     /// Calls gl::BufferData. If a different VBO is currently binded, this function
     /// will bind `self`. Previous binding will not be restored!
-    pub fn buffer_data(&self, size: u32, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_data(&self, size: usize, data: *const c_void) -> Result<(), String> {
         self.bind();
         unsafe {
             gl::BufferData(self.target, size as _, data, self.usage);
@@ -717,7 +717,7 @@ impl Buffer {
 
     /// Calls gl::BufferSubData. If a different VBO is currently binded, this function
     /// will bind `self` and do it's work. Previous binding will not be restored!
-    pub fn buffer_sub_data(&self, size: u32, offset: u32, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_sub_data(&self, size: usize, offset: u32, data: *const c_void) -> Result<(), String> {
         self.bind();
         unsafe {
             gl::BufferSubData(self.target, offset as _, size as _, data);

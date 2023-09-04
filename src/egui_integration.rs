@@ -2,17 +2,16 @@ use std::path::Path;
 use core::default::Default;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
-use egui::epaint::ClippedShape;
-use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray};
-use glfw::Window;
+use gl::types::{GLsizei, GLvoid};
+use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib};
 
+/// Egui Painter uses 0th texture unit. If you are going to use 0th
+/// texture unit, remember to activate it once per draw call.
 pub struct EguiPainter {
     shader_program: ShaderProgram,
 
     vao: VertexArray,
-    pos_vbo: Buffer,
-    tex_vbo: Buffer,
-    col_vbo: Buffer,
+    vbo: Buffer,
     ebo: Buffer,
 
     canvas_width: i32,
@@ -21,7 +20,7 @@ pub struct EguiPainter {
 }
 
 impl EguiPainter {
-    pub fn new(glfw_window: &Window) -> EguiPainter {
+    pub fn new(glfw_window: &glfw::Window) -> EguiPainter {
         let vs = Shader::compile_from_path(&Path::new("resources/egui_shaders/vertex.vert"), gl::VERTEX_SHADER)
             .expect("Painter couldn't load the vertex egui_shader");
         let fs = Shader::compile_from_path(&Path::new("resources/egui_shaders/fragment.frag"), gl::FRAGMENT_SHADER)
@@ -29,13 +28,20 @@ impl EguiPainter {
 
         let shader_program = ShaderProgram::link(&vs, &fs);
 
+        let mut vao = VertexArray::new();
+        let mut vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let mut vbl = VertexBufferLayout::new();
+        vbl.push_attrib(0, VertexAttrib::new(2, gl::FLOAT, gl::FALSE)) //
+            .push_attrib(1, VertexAttrib::new(4, gl::UNSIGNED_BYTE, gl::FALSE))
+            .push_attrib(2, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+
+        vao.attach_vbo(&vbo, &vbl, 0).unwrap();
+
         let mut result = EguiPainter {
             shader_program,
-            vao: VertexArray::new(),
-            pos_vbo: Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW),
-            tex_vbo: Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW),
-            col_vbo: Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW),
-            ebo: Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW),
+            vao,
+            vbo,
+            ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
             canvas_width: 0,
             canvas_height: 0,
             native_pixels_per_point: 1.0,
@@ -44,13 +50,128 @@ impl EguiPainter {
         result
     }
 
-    pub fn update(&mut self, glfw_window: &Window) {
+    pub fn update(&mut self, glfw_window: &glfw::Window) {
         (self.canvas_width, self.canvas_height) = glfw_window.get_framebuffer_size();
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
 
     pub fn paint(&mut self, clipped_primitives: Vec<ClippedPrimitive>, texture_delta: TexturesDelta) {
 
+        // Prepare OpenGL
+        unsafe {
+            // Let OpenGL know we are dealing with SRGB colors so that it
+            // can do the blending correctly. Not setting the framebuffer
+            // leads to darkened, oversaturated colors.
+            gl::Enable(gl::FRAMEBUFFER_SRGB);
+            gl::Enable(gl::SCISSOR_TEST);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
+
+            // Specify viewport
+            gl::Viewport(0, 0, self.canvas_width, self.canvas_height);
+        }
+
+        // Prepare Uniforms
+        self.shader_program.set_uniform2f(
+            "u_screen_size",
+            self.canvas_width as f32 / self.native_pixels_per_point,
+            self.canvas_height as f32 / self.native_pixels_per_point
+        );
+
+        self.shader_program.activate_sampler("u_sampler", 0).unwrap();
+
+        // Iterate through the clipped primitives produced by egui
+        for ClippedPrimitive {
+            clip_rect,
+            primitive,
+        } in clipped_primitives
+        {
+            match primitive {
+                epaint::Primitive::Mesh(mesh) => {
+                    self.paint_mesh(mesh, clip_rect);
+                }
+
+                epaint::Primitive::Callback(_) => {
+                    panic!("Custom rendering callbacks are not implemented");
+                }
+            }
+        }
+
+        // Clean OpenGL state
+        unsafe {
+            // Let OpenGL know we are dealing with SRGB colors so that it
+            // can do the blending correctly. Not setting the framebuffer
+            // leads to darkened, oversaturated colors.
+            gl::Disable(gl::FRAMEBUFFER_SRGB);
+            gl::Disable(gl::SCISSOR_TEST);
+            gl::Disable(gl::BLEND);
+        }
+    }
+
+    pub fn paint_mesh(&self, mesh: Mesh, clip_rect: Rect) {
+        debug_assert!(mesh.is_valid());
+
+        // BeginFrom: https://github.com/emilk/egui/blob/master/crates/egui_glium/src/painter.rs
+        // Transform clip rect to physical pixels:
+        let clip_min_x = self.native_pixels_per_point * clip_rect.min.x;
+        let clip_min_y = self.native_pixels_per_point * clip_rect.min.y;
+        let clip_max_x = self.native_pixels_per_point * clip_rect.max.x;
+        let clip_max_y = self.native_pixels_per_point * clip_rect.max.y;
+
+        // Make sure clip rect can fit within a `u32`:
+        let clip_min_x = clip_min_x.clamp(0.0, self.canvas_width as f32);
+        let clip_min_y = clip_min_y.clamp(0.0, self.canvas_height as f32);
+        let clip_max_x = clip_max_x.clamp(clip_min_x, self.canvas_width as f32);
+        let clip_max_y = clip_max_y.clamp(clip_min_y, self.canvas_height as f32);
+
+        let clip_min_x = clip_min_x.round() as GLsizei;
+        let clip_min_y = clip_min_y.round() as GLsizei;
+        let clip_max_x = clip_max_x.round() as GLsizei;
+        let clip_max_y = clip_max_y.round() as GLsizei;
+        // EndFrom
+
+        // Perform a scissor test
+        unsafe {
+            gl::Scissor(
+                clip_min_x,
+                self.canvas_height - clip_max_y, // Revert y axis
+                clip_max_x - clip_min_x,
+                clip_max_y - clip_min_y,
+            )
+        }
+
+        // VAO
+        self.vao.bind();
+
+        // Bind appropriate texture
+        // here
+
+        self.ebo.buffer_data(
+            mesh.indices.len() * core::mem::size_of::<u32>(),
+            mesh.indices.as_ptr() as *const GLvoid,
+        ).unwrap();
+
+        self.vbo.buffer_data(
+            mesh.vertices.len() *
+                (2 * core::mem::size_of::<f32>()        // position
+                    + 4 * core::mem::size_of::<u8>()    // color
+                    + 2 * core::mem::size_of::<f32>()   // texels
+                ),
+            mesh.vertices.as_ptr() as *const GLvoid,
+        ).unwrap();
+
+        self.shader_program.bind();
+        self.vao.bind();
+        self.vao.use_vbo(&self.vbo);
+        self.vao.use_ebo(&self.ebo);
+        unsafe {
+            gl::DrawElements(
+                gl::TRIANGLES,
+                mesh.indices.len() as _,
+                gl::UNSIGNED_SHORT,
+                core::ptr::null()
+            );
+        }
     }
 }
 

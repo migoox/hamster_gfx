@@ -49,6 +49,10 @@ fn main() {
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
     let mut egui_input = egui_integration::EguiInputHandler::new(&window);
 
+    let mut sine_shift = 0f32;
+    let mut amplitude = 50f32;
+    let mut test_str =
+        "A text box to write in. Cut, copy, paste commands are available.".to_owned();
     // OPENGL WRAPPER TEST
     use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
     use hamster_gfx::renderer::Bindable;
@@ -68,7 +72,7 @@ fn main() {
         -0.5f32, -0.5f32,
         -0.5f32, 0.5f32,
     ];
-    vbo_pos.buffer_data(size_of_val(&vbo_buff) as u32, vbo_buff.as_ptr().cast()).unwrap();
+    vbo_pos.buffer_data(size_of_val(&vbo_buff), vbo_buff.as_ptr().cast()).unwrap();
 
     let vbo_buff: [f32; 8] = [
         1.0f32, 1.0f32,
@@ -76,7 +80,7 @@ fn main() {
         0.0f32, 0.0f32,
         0.0f32, 1.0f32,
     ];
-    vbo_tex.buffer_data(size_of_val(&vbo_buff) as u32, vbo_buff.as_ptr().cast()).unwrap();
+    vbo_tex.buffer_data(size_of_val(&vbo_buff), vbo_buff.as_ptr().cast()).unwrap();
 
     // Create vertex buffer layout
     let mut vbl = VertexBufferLayout::new();
@@ -96,7 +100,7 @@ fn main() {
         0, 1, 3,
         1, 2, 3
     ];
-    ebo.buffer_data(size_of_val(&ebo_buff) as u32, ebo_buff.as_ptr().cast()).unwrap();
+    ebo.buffer_data(size_of_val(&ebo_buff), ebo_buff.as_ptr().cast()).unwrap();
 
     // Create texture
     let mut texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
@@ -128,10 +132,26 @@ fn main() {
         } = egui_ctx.run(egui_input.take_raw_input(), |ctx| {
             // Egui calls here
 
-            egui::CentralPanel::default().show(&ctx, |ui| {
-                ui.label("Hello world!");
-                if ui.button("Click me").clicked() {
-                    // take some action here
+            egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
+                egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
+                    ui.menu_button("File", |ui| {
+                        {
+                            let _ = ui.button("test 1");
+                        }
+                        ui.separator();
+                        {
+                            let _ = ui.button("test 2");
+                        }
+                    });
+                });
+
+                ui.separator();
+                ui.label(" ");
+                ui.text_edit_multiline(&mut test_str);
+                ui.label(" ");
+                ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
+                ui.label(" ");
+                if ui.button("Quit").clicked() {
                 }
             });
         });
