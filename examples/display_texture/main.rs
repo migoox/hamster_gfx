@@ -3,6 +3,7 @@ use std::time::Instant;
 use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
+use hamster_gfx::egui_integration;
 use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout};
 
 const SCREEN_WIDTH: u32 = 1600;
@@ -43,12 +44,10 @@ fn main() {
 
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-    let native_pixels_per_point = window.get_content_scale().0;
-
-    // Create egui_shaders context
+    // EGUI INTEGRATION
     let egui_ctx = egui::Context::default();
-
-    let mut clock: Instant;
+    let mut egui_painter = egui_integration::EguiPainter::new(&window);
+    let mut egui_input = egui_integration::EguiInputHandler::new(&window);
 
     // OPENGL WRAPPER TEST
     use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
@@ -56,28 +55,41 @@ fn main() {
     let vs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.vert"), gl::VERTEX_SHADER).unwrap();
     let fs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.frag"), gl::FRAGMENT_SHADER).unwrap();
     let program = ShaderProgram::link(&vs, &fs);
-    program.bind();
 
     let mut vao = VertexArray::new();
-    let mut vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
+    let mut vbo_pos = Buffer::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW);
+    let mut vbo_tex = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
     let ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
 
-    // Initialize vertex buffer
-    let vbo_buff: [f32; 16] = [
-        0.5f32, 0.5f32, 1.0f32, 1.0f32,
-        0.5f32, -0.5f32, 1.0f32, 0.0f32,
-        -0.5f32, -0.5f32, 0.0f32, 0.0f32,
-        -0.5f32, 0.5f32, 0.0f32, 1.0f32,
+    // Initialize vertex buffers
+    let vbo_buff: [f32; 8] = [
+        0.5f32, 0.5f32,
+        0.5f32, -0.5f32,
+        -0.5f32, -0.5f32,
+        -0.5f32, 0.5f32,
     ];
-    vbo.buffer_data(size_of_val(&vbo_buff) as u32, vbo_buff.as_ptr().cast()).unwrap();
+    vbo_pos.buffer_data(size_of_val(&vbo_buff) as u32, vbo_buff.as_ptr().cast()).unwrap();
+
+    let vbo_buff: [f32; 8] = [
+        1.0f32, 1.0f32,
+        1.0f32, 0.0f32,
+        0.0f32, 0.0f32,
+        0.0f32, 1.0f32,
+    ];
+    vbo_tex.buffer_data(size_of_val(&vbo_buff) as u32, vbo_buff.as_ptr().cast()).unwrap();
 
     // Create vertex buffer layout
     let mut vbl = VertexBufferLayout::new();
-    vbl.push_attrib(0 as _, VertexAttrib::new(2, gl::FLOAT, gl::FALSE))
-        .push_attrib(1 as _, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+    vbl.push_attrib(0 as _, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
 
-    // Attach vertex buffer to the layout
-    vao.attach_vbo(&vbo, &vbl, 0).unwrap();
+    // Attach position vertex buffer to the layout
+    vao.attach_vbo(&vbo_pos, &vbl, 0).unwrap();
+
+    let mut vbl = VertexBufferLayout::new();
+    vbl.push_attrib(1 as _, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+
+    // Attach texel vertex buffer to the layout
+    vao.attach_vbo(&vbo_tex, &vbl, 0).unwrap();
 
     // Initialize element buffer
     let ebo_buff: [u32; 6] = [
@@ -92,41 +104,41 @@ fn main() {
     texture.activate(3);
     program.activate_sampler("u_texture_3", 3).unwrap();
 
+    let mut clock = Instant::now();
     while !window.should_close() {
+        // UPDATE INPUT
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::Close => window.set_should_close(true),
                 _ => {
-                    // Translate GLFW events to egui_shaders events
+                    egui_input.handle_event(event);
                 }
             }
         }
 
-        clock = Instant::now();
-
-        // Get size in pixels
-        let (width, height) = window.get_framebuffer_size();
-
-        let raw_input = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(
-                egui::Pos2::new(0f32, 0f32),
-                egui::vec2(width as f32, height as f32) / native_pixels_per_point,
-            )),
-            ..Default::default()
-        };
-
-        egui_ctx.begin_frame(raw_input);
+        // UPDATE
+        egui_input.update(&window, clock.elapsed().as_secs_f64());
+        egui_painter.update(&window);
 
         let egui::FullOutput {
-            platform_output: _platform_output,
+            platform_output,
             repaint_after: _,
-            textures_delta: _textures_delta,
+            textures_delta,
             shapes,
-        } = egui_ctx.end_frame();
+        } = egui_ctx.run(egui_input.take_raw_input(), |ctx| {
+            // Egui calls here
 
-        let _clipped_primitives = egui_ctx.tessellate(shapes);
+            egui::CentralPanel::default().show(&ctx, |ui| {
+                ui.label("Hello world!");
+                if ui.button("Click me").clicked() {
+                    // take some action here
+                }
+            });
+        });
 
-        // Clear here
+        egui_input.handle_clipboard(platform_output);
+
+        // RENDER
         unsafe {
             gl::ClearColor(0.0, 1.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -135,17 +147,16 @@ fn main() {
         // Draw a rectangle
         program.bind();
         vao.bind();
-        vao.use_vbo(&vbo);
+        vao.use_vbo(&vbo_pos);
+        vao.use_vbo(&vbo_tex);
         vao.use_ebo(&ebo);
 
         unsafe {
-            // gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, core::ptr::null());
         }
 
-        // Draw clipped primitives
-
-        // Draw here
+        // Draw egui content using egui_painter
+        egui_painter.paint(egui_ctx.tessellate(shapes), textures_delta);
 
         window.swap_buffers();
         glfw.poll_events();
