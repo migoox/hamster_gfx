@@ -262,21 +262,139 @@ impl ShaderProgram {
         sprogram
     }
 
-    /// Binds the ShaderProgram and sets glsl's sampler uniform with `name` to `unit`.
-    /// Previous binding won't be restored!
+    /// Sets glsl's sampler uniform with `name` to `unit`.
+    /// This function calls set_uniform1i, which uses gl::ProgramUniform* command family, which means
+    /// that there is no need to bind ShaderProgram, so this function won't bind anything.
     pub fn activate_sampler(&self, name: &str, unit: u32) -> Result<(), String> {
-        self.bind();
+        self.set_uniform1i(name, unit as i32);
+        Ok(())
+    }
 
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform1ui(&self, name: &str, v0: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
-
         unsafe {
-            gl::Uniform1i(
+            gl::ProgramUniform1ui(
+                self.id,
                 gl::GetUniformLocation(self.id, cname.as_ptr()),
-                unit as _,
+                v0,
             );
         }
 
-        Ok(())
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform2ui(&self, name: &str, v0: u32, v1: u32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform2ui(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+                v1,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform1i(&self, name: &str, v0: i32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform1i(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform2i(&self, name: &str, v0: i32, v1: i32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform2i(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+                v1,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    pub fn set_uniform1f(&self, name: &str, v0: f32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform1f(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform2f(&self, name: &str, v0: f32, v1: f32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform2f(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+                v1,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform3f(&self, name: &str, v0: f32, v1: f32, v2: f32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform3f(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+                v1,
+                v2,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+    }
+
+    // This function is a gl::ProgramUniform* wrapper.
+    pub fn set_uniform4f(&self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniform4f(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                v0,
+                v1,
+                v2,
+                v3,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
     }
 
     // Binder shared between instances of the ShaderProgram structure
