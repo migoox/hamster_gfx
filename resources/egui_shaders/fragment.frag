@@ -53,5 +53,5 @@ void main() {
         texture_rgba.rgb *= texture_rgba.a;
     }
     /// Multiply vertex color with texture color (in linear space).
-    gl_FragColor = v_rgba * texture_rgba + vec4(1., 1., 1., 1.);
+    gl_FragColor = v_rgba * texture_rgba;
 }
