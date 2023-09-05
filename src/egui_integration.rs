@@ -222,10 +222,10 @@ impl EguiPainter {
         let clip_max_x = clip_max_x.clamp(clip_min_x, self.canvas_width as f32);
         let clip_max_y = clip_max_y.clamp(clip_min_y, self.canvas_height as f32);
 
-        let clip_min_x = clip_min_x.round() as GLsizei;
-        let clip_min_y = clip_min_y.round() as GLsizei;
-        let clip_max_x = clip_max_x.round() as GLsizei;
-        let clip_max_y = clip_max_y.round() as GLsizei;
+        let clip_min_x = clip_min_x.round() as i32;
+        let clip_min_y = clip_min_y.round() as i32;
+        let clip_max_x = clip_max_x.round() as i32;
+        let clip_max_y = clip_max_y.round() as i32;
         // EndFrom
 
         // Perform a scissor test
@@ -296,7 +296,7 @@ impl EguiPainter {
             gl::DrawElements(
                 gl::TRIANGLES,
                 mesh.indices.len() as _,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 core::ptr::null(),
             );
         }
