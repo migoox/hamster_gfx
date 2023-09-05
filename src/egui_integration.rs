@@ -117,9 +117,6 @@ impl EguiPainter {
 
         // Clean OpenGL state
         unsafe {
-            // Let OpenGL know we are dealing with SRGB colors so that it
-            // can do the blending correctly. Not setting the framebuffer
-            // leads to darkened, oversaturated colors.
             gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::BLEND);
@@ -282,7 +279,6 @@ impl EguiPainter {
         ).unwrap();
 
         // Bind texture associated with the mesh
-
         self.shader_program.bind();
         self.shader_program.activate_sampler("u_sampler", 0).unwrap();
         let texture = self.textures.get(&mesh.texture_id).unwrap();

@@ -119,18 +119,17 @@ fn main() {
             }
         }
 
-        // UPDATE
-        egui_input.update(&window, clock.elapsed().as_secs_f64());
-        egui_painter.update(&window);
-
         let egui::FullOutput {
             platform_output,
             repaint_after: _,
             textures_delta,
             shapes,
         } = egui_ctx.run(egui_input.take_raw_input(), |ctx| {
-            // Egui calls here
+            // UPDATE EGUI INTEGRATION
+            egui_input.update(&window, clock.elapsed().as_secs_f64());
+            egui_painter.update(&window);
 
+            // Egui calls
             egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
                 egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
                     ui.menu_button("File", |ui| {
