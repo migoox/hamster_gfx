@@ -195,6 +195,7 @@ impl EguiPainter {
                 texture.tex_image2d(
                     width as GLsizei,
                     height as GLsizei,
+                    gl::RGBA as GLint,
                     gl::RGBA,
                     &data,
                 );
