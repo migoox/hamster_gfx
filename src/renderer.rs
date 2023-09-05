@@ -476,7 +476,7 @@ impl Texture {
         width: GLint,
         height: GLint,
         format: GLuint,
-        pixels: *const c_void,
+        bytes: &[u8],
     ) {
         self.bind();
 
@@ -490,7 +490,7 @@ impl Texture {
                 0,
                 format,
                 gl::UNSIGNED_BYTE,
-                pixels,
+                bytes.as_ptr() as *const _
             );
         }
 
