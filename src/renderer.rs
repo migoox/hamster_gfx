@@ -535,6 +535,7 @@ impl Texture {
         y_offset: GLint,
         width: GLsizei,
         height: GLsizei,
+        format: GLuint,
         bytes: &[u8],
     ) {
         self.bind();
@@ -546,7 +547,7 @@ impl Texture {
                 y_offset,
                 width,
                 height,
-                gl::RGBA,
+                format,
                 gl::UNSIGNED_BYTE,
                 bytes.as_ptr() as *const _
             )
