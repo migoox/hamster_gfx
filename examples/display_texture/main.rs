@@ -163,10 +163,10 @@ fn main() {
         }
 
         // Draw a rectangle
+        vao.bind();
         program.bind();
         texture.activate(3);
         program.activate_sampler("u_texture_3", 3).unwrap();
-        vao.bind();
         vao.use_vbo(&vbo_pos);
         vao.use_vbo(&vbo_tex);
         vao.use_ebo(&ebo);

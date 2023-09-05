@@ -475,7 +475,8 @@ impl Texture {
         &self,
         width: GLint,
         height: GLint,
-        format: GLuint,
+        internal_format: GLint,
+        src_format: GLuint,
         bytes: &[u8],
     ) {
         self.bind();
@@ -484,11 +485,11 @@ impl Texture {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as GLint,
+                internal_format,
                 width,
                 height,
                 0,
-                format,
+                src_format,
                 gl::UNSIGNED_BYTE,
                 bytes.as_ptr() as *const _
             );

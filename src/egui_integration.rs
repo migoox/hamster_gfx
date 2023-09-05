@@ -12,7 +12,9 @@ pub struct EguiPainter {
     shader_program: ShaderProgram,
 
     vao: VertexArray,
-    vbo: Buffer,
+    vbo_pos: Buffer,
+    vbo_col: Buffer,
+    vbo_tex: Buffer,
     ebo: Buffer,
 
     textures: HashMap<TextureId, Texture>,
@@ -32,18 +34,28 @@ impl EguiPainter {
         let shader_program = ShaderProgram::link(&vs, &fs);
 
         let mut vao = VertexArray::new();
-        let mut vbo = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
-        let mut vbl = VertexBufferLayout::new();
-        vbl.push_attrib(0, VertexAttrib::new(2, gl::FLOAT, gl::FALSE)) //
-            .push_attrib(1, VertexAttrib::new(4, gl::UNSIGNED_BYTE, gl::FALSE))
-            .push_attrib(2, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+        let mut vbo_pos = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let mut vbo_col = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let mut vbo_tex = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
 
-        vao.attach_vbo(&vbo, &vbl, 0).unwrap();
+        let mut vbl = VertexBufferLayout::new();
+        vbl.push_attrib(0, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+        vao.attach_vbo(&vbo_pos, &vbl, 0).unwrap();
+
+        let mut vbl = VertexBufferLayout::new();
+        vbl.push_attrib(1, VertexAttrib::new(4, gl::UNSIGNED_BYTE, gl::FALSE));
+        vao.attach_vbo(&vbo_col, &vbl, 0).unwrap();
+
+        let mut vbl = VertexBufferLayout::new();
+        vbl.push_attrib(2, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
+        vao.attach_vbo(&vbo_tex, &vbl, 0).unwrap();
 
         let mut result = EguiPainter {
             shader_program,
             vao,
-            vbo,
+            vbo_pos,
+            vbo_col,
+            vbo_tex,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
             textures: HashMap::new(),
             canvas_width: 0,
@@ -183,6 +195,7 @@ impl EguiPainter {
                 texture.tex_image2d(
                     width as GLsizei,
                     height as GLsizei,
+                    gl::RGBA as GLint,
                     gl::RGBA,
                     &data,
                 );
@@ -210,10 +223,10 @@ impl EguiPainter {
         let clip_max_x = clip_max_x.clamp(clip_min_x, self.canvas_width as f32);
         let clip_max_y = clip_max_y.clamp(clip_min_y, self.canvas_height as f32);
 
-        let clip_min_x = clip_min_x.round() as GLsizei;
-        let clip_min_y = clip_min_y.round() as GLsizei;
-        let clip_max_x = clip_max_x.round() as GLsizei;
-        let clip_max_y = clip_max_y.round() as GLsizei;
+        let clip_min_x = clip_min_x.round() as i32;
+        let clip_min_y = clip_min_y.round() as i32;
+        let clip_max_x = clip_max_x.round() as i32;
+        let clip_max_y = clip_max_y.round() as i32;
         // EndFrom
 
         // Perform a scissor test
@@ -226,6 +239,24 @@ impl EguiPainter {
             )
         }
 
+        // Prepare data
+        let vertices_len = mesh.vertices.len();
+        let mut positions: Vec<f32> = Vec::with_capacity(2 * vertices_len);
+        let mut tex_coords: Vec<f32> = Vec::with_capacity(2 * vertices_len);
+        let mut colors: Vec<u8> = Vec::with_capacity(4 * vertices_len);
+        for v in &mesh.vertices {
+            positions.push(v.pos.x);
+            positions.push(v.pos.y);
+
+            tex_coords.push(v.uv.x);
+            tex_coords.push(v.uv.y);
+
+            colors.push(v.color[0]);
+            colors.push(v.color[1]);
+            colors.push(v.color[2]);
+            colors.push(v.color[3]);
+        }
+
         // Bind vao
         self.vao.bind();
 
@@ -235,13 +266,19 @@ impl EguiPainter {
             mesh.indices.as_ptr() as *const GLvoid,
         ).unwrap();
 
-        self.vbo.buffer_data(
-            mesh.vertices.len() *
-                (2 * core::mem::size_of::<f32>()        // position
-                    + 4 * core::mem::size_of::<u8>()    // color
-                    + 2 * core::mem::size_of::<f32>()   // texels
-                ),
-            mesh.vertices.as_ptr() as *const GLvoid,
+        self.vbo_pos.buffer_data(
+            core::mem::size_of::<f32>() * positions.len(),
+            positions.as_ptr() as *const GLvoid,
+        ).unwrap();
+
+        self.vbo_col.buffer_data(
+             core::mem::size_of::<u8>() * colors.len(),
+            colors.as_ptr() as *const GLvoid,
+        ).unwrap();
+
+        self.vbo_tex.buffer_data(
+            core::mem::size_of::<f32>() * tex_coords.len(),
+            tex_coords.as_ptr() as *const GLvoid,
         ).unwrap();
 
         // Bind texture associated with the mesh
@@ -251,14 +288,16 @@ impl EguiPainter {
         let texture = self.textures.get(&mesh.texture_id).unwrap();
         texture.activate(0);
         self.vao.bind();
-        self.vao.use_vbo(&self.vbo);
+        self.vao.use_vbo(&self.vbo_pos);
+        self.vao.use_vbo(&self.vbo_col);
+        self.vao.use_vbo(&self.vbo_tex);
         self.vao.use_ebo(&self.ebo);
 
         unsafe {
             gl::DrawElements(
                 gl::TRIANGLES,
                 mesh.indices.len() as _,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
                 core::ptr::null(),
             );
         }
