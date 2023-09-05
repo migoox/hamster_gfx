@@ -105,8 +105,7 @@ fn main() {
     // Create texture
     let mut texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
     texture.tex_image2d_from_path(&Path::new("resources/images/test_photo.png")).unwrap();
-    texture.activate(3);
-    program.activate_sampler("u_texture_3", 3).unwrap();
+
 
     let mut clock = Instant::now();
     while !window.should_close() {
@@ -151,8 +150,7 @@ fn main() {
                 ui.label(" ");
                 ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
                 ui.label(" ");
-                if ui.button("Quit").clicked() {
-                }
+                if ui.button("Quit").clicked() {}
             });
         });
 
@@ -166,6 +164,8 @@ fn main() {
 
         // Draw a rectangle
         program.bind();
+        texture.activate(3);
+        program.activate_sampler("u_texture_3", 3).unwrap();
         vao.bind();
         vao.use_vbo(&vbo_pos);
         vao.use_vbo(&vbo_tex);
@@ -176,7 +176,7 @@ fn main() {
         }
 
         // Draw egui content using egui_painter
-        egui_painter.paint(egui_ctx.tessellate(shapes), textures_delta);
+        egui_painter.paint(&egui_ctx.tessellate(shapes), &textures_delta);
 
         window.swap_buffers();
         glfw.poll_events();

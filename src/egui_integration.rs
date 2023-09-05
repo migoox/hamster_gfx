@@ -1,9 +1,10 @@
 use std::path::Path;
 use core::default::Default;
+use std::collections::HashMap;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
-use gl::types::{GLsizei, GLvoid};
-use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib};
+use gl::types::{GLint, GLsizei, GLvoid};
+use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
 
 /// Egui Painter uses 0th texture unit. If you are going to use 0th
 /// texture unit, remember to activate it once per draw call.
@@ -13,6 +14,8 @@ pub struct EguiPainter {
     vao: VertexArray,
     vbo: Buffer,
     ebo: Buffer,
+
+    textures: HashMap<TextureId, Texture>,
 
     canvas_width: i32,
     canvas_height: i32,
@@ -42,6 +45,7 @@ impl EguiPainter {
             vao,
             vbo,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
+            textures: HashMap::new(),
             canvas_width: 0,
             canvas_height: 0,
             native_pixels_per_point: 1.0,
@@ -55,7 +59,10 @@ impl EguiPainter {
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
 
-    pub fn paint(&mut self, clipped_primitives: Vec<ClippedPrimitive>, texture_delta: TexturesDelta) {
+    /// Paints and updates egui textures
+    pub fn paint(&mut self, clipped_primitives: &Vec<ClippedPrimitive>, texture_delta: &TexturesDelta) {
+        // Update textures if they are already uploaded to the OpenGL or upload them
+        self.update_textures(texture_delta);
 
         // Prepare OpenGL
         unsafe {
@@ -75,12 +82,12 @@ impl EguiPainter {
         self.shader_program.set_uniform2f(
             "u_screen_size",
             self.canvas_width as f32 / self.native_pixels_per_point,
-            self.canvas_height as f32 / self.native_pixels_per_point
+            self.canvas_height as f32 / self.native_pixels_per_point,
         );
 
         self.shader_program.activate_sampler("u_sampler", 0).unwrap();
 
-        // Iterate through the clipped primitives produced by egui
+        // Iterate through the clipped primitives produced by egui and paint them
         for ClippedPrimitive {
             clip_rect,
             primitive,
@@ -90,7 +97,6 @@ impl EguiPainter {
                 epaint::Primitive::Mesh(mesh) => {
                     self.paint_mesh(mesh, clip_rect);
                 }
-
                 epaint::Primitive::Callback(_) => {
                     panic!("Custom rendering callbacks are not implemented");
                 }
@@ -108,7 +114,87 @@ impl EguiPainter {
         }
     }
 
-    pub fn paint_mesh(&self, mesh: Mesh, clip_rect: Rect) {
+    fn update_textures(&mut self, textures_delta: &TexturesDelta) {
+        for (tex_id, image_delta) in &textures_delta.set {
+
+            // Gather data that will be uploaded to OpenGL
+            let data: Vec<u8> = match &image_delta.image {
+                ImageData::Color(color_data) => {
+                    assert_eq!(
+                        color_data.width() * color_data.height(),
+                        color_data.pixels.len(),
+                        "Mismatch between texture size and texel count"
+                    );
+
+                    color_data.pixels.iter()
+                        .flat_map(|c| c.to_array())
+                        .collect()
+                }
+                ImageData::Font(font_data) => {
+                    assert_eq!(
+                        font_data.width() * font_data.height(),
+                        font_data.pixels.len(),
+                        "Mismatch between texture size and texel count"
+                    );
+
+                    // Documentation says that gamma set to 1.0 looks the best
+                    let gamma = 1.0;
+                    font_data.srgba_pixels(Some(gamma))
+                        .flat_map(|c| c.to_array())
+                        .collect()
+                }
+            };
+
+            // Get width and height of the patch (or the whole new texture)
+            let [width, height] = image_delta.image.size();
+
+            if let Some([x_offset, y_offset]) = image_delta.pos {
+                // If image_delta.pos is Some, this describes a patch of the whole image starting
+                // at image_delta.pos so in this case we won't allocate anything new, and no entry
+                // will be added to textures hash map.
+
+                // Find texture (it should exist)
+                let texture = match self.textures.get_mut(&tex_id) {
+                    Some(t) => t,
+                    None => panic!("Failed to find egui texture {:?}", tex_id),
+                };
+
+                // Update a sub-region of an already allocated texture with the patch
+                texture.tex_sub_image2d(
+                    x_offset as GLint,
+                    y_offset as GLint,
+                    width as GLsizei,
+                    height as GLsizei,
+                    gl::RGBA,
+                    &data,
+                );
+            } else {
+                // If image_delta.pos is None, this describes the whole new texture. In this
+                // we allocate new texture.
+
+                // Create a new OpenGL texture
+                let texture = Texture::new(
+                    gl::TEXTURE_2D,
+                    gl::LINEAR,
+                    gl::CLAMP_TO_EDGE,
+                );
+
+                // Buffer the data
+                texture.tex_image2d(
+                    width as GLsizei,
+                    height as GLsizei,
+                    gl::RGBA,
+                    &data,
+                );
+
+                // Insert egui texture, if there was a texture with the given tex_id
+                // it will be dropped.
+                self.textures.insert(*tex_id, texture);
+            }
+        }
+    }
+
+    pub fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
         debug_assert!(mesh.is_valid());
 
         // BeginFrom: https://github.com/emilk/egui/blob/master/crates/egui_glium/src/painter.rs
@@ -140,12 +226,10 @@ impl EguiPainter {
             )
         }
 
-        // VAO
+        // Bind vao
         self.vao.bind();
 
-        // Bind appropriate texture
-        // here
-
+        // Update buffers
         self.ebo.buffer_data(
             mesh.indices.len() * core::mem::size_of::<u32>(),
             mesh.indices.as_ptr() as *const GLvoid,
@@ -160,16 +244,22 @@ impl EguiPainter {
             mesh.vertices.as_ptr() as *const GLvoid,
         ).unwrap();
 
+        // Bind texture associated with the mesh
+
         self.shader_program.bind();
+        self.shader_program.activate_sampler("u_sampler", 0).unwrap();
+        let texture = self.textures.get(&mesh.texture_id).unwrap();
+        texture.activate(0);
         self.vao.bind();
         self.vao.use_vbo(&self.vbo);
         self.vao.use_ebo(&self.ebo);
+
         unsafe {
             gl::DrawElements(
                 gl::TRIANGLES,
                 mesh.indices.len() as _,
                 gl::UNSIGNED_SHORT,
-                core::ptr::null()
+                core::ptr::null(),
             );
         }
     }
