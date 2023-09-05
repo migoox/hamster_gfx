@@ -477,7 +477,7 @@ impl Texture {
         height: GLint,
         format: GLuint,
         pixels: *const c_void,
-    ) -> Result<(), String> {
+    ) {
         self.bind();
 
         unsafe {
@@ -496,8 +496,6 @@ impl Texture {
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
-
-        Ok(())
     }
 
     /// Load image from the given path (uses image crate) and supply the gl::TexImage2D
@@ -529,6 +527,31 @@ impl Texture {
         check_opengl_errors();
 
         Ok(())
+    }
+
+    pub fn tex_sub_image2d(
+        &self,
+        x_offset: GLint,
+        y_offset: GLint,
+        width: GLsizei,
+        height: GLsizei,
+        bytes: &[u8],
+    ) {
+        self.bind();
+        unsafe {
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                x_offset,
+                y_offset,
+                width,
+                height,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                bytes.as_ptr() as *const _
+            )
+        }
+
     }
 
     /// Activates the texture on the given texture `unit`.
