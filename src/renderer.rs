@@ -442,7 +442,7 @@ impl Texture {
     ) -> Texture {
         let mut id: GLuint = 0;
         unsafe {
-            gl::GenTextures(0, &mut id);
+            gl::GenTextures(1, &mut id);
         }
 
         #[cfg(feature = "gl_debug")]
