@@ -3,7 +3,9 @@ use std::time::Instant;
 use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
+use egui::Color32;
 use hamster_gfx::egui_integration;
+use hamster_gfx::egui_integration::EguiUserTexture;
 use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
 
 const SCREEN_WIDTH: u32 = 1600;
@@ -49,10 +51,19 @@ fn main() {
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
     let mut egui_input = egui_integration::EguiInputHandler::new(&window);
 
+    let egui_txt = EguiUserTexture::new(
+        &mut egui_painter,
+        egui::TextureFilter::Linear,
+        100,
+        100,
+        &vec![Color32::from_rgb(0,0,0); 100 * 100],
+    );
+
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
     let mut test_str =
         "A text box to write in. Cut, copy, paste commands are available.".to_owned();
+
     // OPENGL WRAPPER TEST
     use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
     use hamster_gfx::renderer::Bindable;
@@ -120,12 +131,7 @@ fn main() {
             }
         }
 
-        let egui::FullOutput {
-            platform_output,
-            repaint_after: _,
-            textures_delta,
-            shapes,
-        } = egui_ctx.run(egui_input.take_raw_input(), |ctx| {
+        egui_ctx.begin_frame(egui_input.take_raw_input());
             // UPDATE EGUI INTEGRATION
             egui_input.update(&window, clock.elapsed().as_secs_f64());
             egui_painter.update(&window);
@@ -152,7 +158,12 @@ fn main() {
                 ui.label(" ");
                 if ui.button("Quit").clicked() {}
             });
-        });
+        let egui::FullOutput {
+            platform_output,
+            repaint_after: _,
+            textures_delta,
+            shapes,
+        } = egui_ctx.end_frame();
 
         egui_input.handle_clipboard(platform_output);
 

@@ -1,9 +1,12 @@
 use std::path::Path;
 use core::default::Default;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
+use image::EncodableLayout;
 use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
 
 /// Egui Painter uses 0th texture unit. If you are going to use 0th
@@ -17,7 +20,7 @@ pub struct EguiPainter {
     vbo_tex: Buffer,
     ebo: Buffer,
 
-    textures: HashMap<TextureId, Texture>,
+    textures: Rc<RefCell<HashMap<TextureId, Texture>>>,
 
     canvas_width: i32,
     canvas_height: i32,
@@ -57,7 +60,7 @@ impl EguiPainter {
             vbo_col,
             vbo_tex,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
-            textures: HashMap::new(),
+            textures: Rc::new(RefCell::new(HashMap::new())),
             canvas_width: 0,
             canvas_height: 0,
             native_pixels_per_point: 1.0,
@@ -123,6 +126,7 @@ impl EguiPainter {
         }
     }
 
+
     fn update_textures(&mut self, textures_delta: &TexturesDelta) {
         for (tex_id, image_delta) in &textures_delta.set {
 
@@ -162,21 +166,21 @@ impl EguiPainter {
                 // at image_delta.pos so in this case we won't allocate anything new, and no entry
                 // will be added to textures hash map.
 
-                // Find texture (it should exist)
-                let texture = match self.textures.get_mut(&tex_id) {
-                    Some(t) => t,
+                match self.textures.borrow_mut().get(&tex_id) {
+                    Some(texture) => {
+                        // Update a sub-region of an already allocated texture with the patch
+                        texture.tex_sub_image2d(
+                            x_offset as GLint,
+                            y_offset as GLint,
+                            width as GLsizei,
+                            height as GLsizei,
+                            gl::RGBA,
+                            &data,
+                        );
+                    }
+                    // The texture should exist at this point
                     None => panic!("Failed to find egui texture {:?}", tex_id),
                 };
-
-                // Update a sub-region of an already allocated texture with the patch
-                texture.tex_sub_image2d(
-                    x_offset as GLint,
-                    y_offset as GLint,
-                    width as GLsizei,
-                    height as GLsizei,
-                    gl::RGBA,
-                    &data,
-                );
             } else {
                 // If image_delta.pos is None, this describes the whole new texture. In this
                 // we allocate new texture.
@@ -199,7 +203,7 @@ impl EguiPainter {
 
                 // Insert egui texture, if there was a texture with the given tex_id
                 // it will be dropped.
-                self.textures.insert(*tex_id, texture);
+                self.textures.borrow_mut().insert(*tex_id, texture);
             }
         }
     }
@@ -269,7 +273,7 @@ impl EguiPainter {
         ).unwrap();
 
         self.vbo_col.buffer_data(
-             core::mem::size_of::<u8>() * colors.len(),
+            core::mem::size_of::<u8>() * colors.len(),
             colors.as_ptr() as *const GLvoid,
         ).unwrap();
 
@@ -281,8 +285,11 @@ impl EguiPainter {
         // Bind texture associated with the mesh
         self.shader_program.bind();
         self.shader_program.activate_sampler("u_sampler", 0).unwrap();
-        let texture = self.textures.get(&mesh.texture_id).unwrap();
-        texture.activate(0);
+        match self.textures.borrow().get(&mesh.texture_id) {
+            Some(texture) => texture.activate(0),
+            // The texture should exist at this point
+            None => panic!("Failed to find egui texture {:?}", tex_id),
+        };
         self.vao.bind();
         self.vao.use_vbo(&self.vbo_pos);
         self.vao.use_vbo(&self.vbo_col);
@@ -297,6 +304,65 @@ impl EguiPainter {
                 core::ptr::null(),
             );
         }
+    }
+}
+
+/// Allows
+pub struct EguiUserTexture {
+    egui_txt_id: TextureId,
+    textures: Rc<RefCell<HashMap<TextureId, Texture>>>,
+}
+
+impl EguiUserTexture {
+    /// EguiUserTexture cannot outlive painter
+    pub fn new<>(
+        painter: &mut EguiPainter,
+        filtering: TextureFilter,
+        width: usize,
+        height: usize,
+        data: &[Color32],
+    ) -> EguiUserTexture<> {
+        let gl_texture = Texture::new(
+            gl::TEXTURE_2D,
+            match filtering {
+                TextureFilter::Linear => gl::LINEAR,
+                TextureFilter::Nearest => gl::NEAREST,
+            },
+            gl::CLAMP_TO_EDGE,
+        );
+
+        let data: Vec<u8> = data.iter().flat_map(|c| c.to_array()).collect();
+
+        gl_texture.tex_image2d(
+            width as GLint,
+            height as GLint,
+            gl::RGBA as GLint,
+            gl::RGBA,
+            data.as_bytes(),
+        );
+
+
+        let id = TextureId::User(painter.textures.borrow().len() as u64);
+        painter.textures.borrow_mut().insert(id, gl_texture);
+
+        EguiUserTexture {
+            egui_txt_id: id,
+            textures: Rc::clone(&painter.textures),
+        }
+    }
+
+    pub fn get_id(&self) -> TextureId {
+        self.egui_txt_id
+    }
+
+    pub fn update(&mut self) {
+        todo!();
+    }
+}
+
+impl Drop for EguiUserTexture {
+    fn drop(&mut self) {
+        self.textures.borrow_mut().remove(&self.egui_txt_id);
     }
 }
 
