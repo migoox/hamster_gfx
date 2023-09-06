@@ -288,7 +288,7 @@ impl EguiPainter {
         match self.textures.borrow().get(&mesh.texture_id) {
             Some(texture) => texture.activate(0),
             // The texture should exist at this point
-            None => panic!("Failed to find egui texture {:?}", tex_id),
+            None => panic!("Failed to find egui texture {:?}", mesh.texture_id),
         };
         self.vao.bind();
         self.vao.use_vbo(&self.vbo_pos);
@@ -340,7 +340,6 @@ impl EguiUserTexture {
             gl::RGBA,
             data.as_bytes(),
         );
-
 
         let id = TextureId::User(painter.textures.borrow().len() as u64);
         painter.textures.borrow_mut().insert(id, gl_texture);

@@ -56,7 +56,7 @@ fn main() {
         egui::TextureFilter::Linear,
         100,
         100,
-        &vec![Color32::from_rgb(0,0,0); 100 * 100],
+        &vec![Color32::from_rgb(0, 15, 0); 100 * 100],
     );
 
     let mut sine_shift = 0f32;
@@ -132,32 +132,33 @@ fn main() {
         }
 
         egui_ctx.begin_frame(egui_input.take_raw_input());
-            // UPDATE EGUI INTEGRATION
-            egui_input.update(&window, clock.elapsed().as_secs_f64());
-            egui_painter.update(&window);
+        // UPDATE EGUI INTEGRATION
+        egui_input.update(&window, clock.elapsed().as_secs_f64());
+        egui_painter.update(&window);
 
-            // Egui calls
-            egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
-                egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
-                    ui.menu_button("File", |ui| {
-                        {
-                            let _ = ui.button("test 1");
-                        }
-                        ui.separator();
-                        {
-                            let _ = ui.button("test 2");
-                        }
-                    });
+        // Egui calls
+        egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
+            egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
+                ui.menu_button("File", |ui| {
+                    {
+                        let _ = ui.button("test 1");
+                    }
+                    ui.separator();
+                    {
+                        let _ = ui.button("test 2");
+                    }
                 });
-
-                ui.separator();
-                ui.label(" ");
-                ui.text_edit_multiline(&mut test_str);
-                ui.label(" ");
-                ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
-                ui.label(" ");
-                if ui.button("Quit").clicked() {}
             });
+
+            ui.add(egui::Image::new(egui_txt.get_id(), egui::vec2(100 as f32, 100 as f32)));
+            ui.separator();
+            ui.label(" ");
+            ui.text_edit_multiline(&mut test_str);
+            ui.label(" ");
+            ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
+            ui.label(" ");
+            if ui.button("Quit").clicked() {}
+        });
         let egui::FullOutput {
             platform_output,
             repaint_after: _,
