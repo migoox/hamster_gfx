@@ -4,7 +4,7 @@ use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
 use hamster_gfx::egui_integration;
-use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout};
+use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
 
 const SCREEN_WIDTH: u32 = 1600;
 const SCREEN_HEIGHT: u32 = 1200;
@@ -104,8 +104,9 @@ fn main() {
 
     // Create texture
     let mut texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
-    texture.tex_image2d_from_path(&Path::new("resources/images/test_photo.png")).unwrap();
+    texture.tex_image2d_from_path(&Path::new("resources/images/hamster.png")).unwrap();
 
+    program.activate_sampler("u_texture", 3).unwrap();
 
     let mut clock = Instant::now();
     while !window.should_close() {
@@ -165,7 +166,6 @@ fn main() {
         vao.bind();
         program.bind();
         texture.activate(3);
-        program.activate_sampler("u_texture_3", 3).unwrap();
         vao.use_vbo(&vbo_pos);
         vao.use_vbo(&vbo_tex);
         vao.use_ebo(&ebo);
