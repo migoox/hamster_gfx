@@ -274,7 +274,7 @@ impl ShaderProgram {
     pub fn set_uniform1ui(&self, name: &str, v0: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
-                gl::ProgramUniform1ui(
+            gl::ProgramUniform1ui(
                 self.id,
                 gl::GetUniformLocation(self.id, cname.as_ptr()),
                 v0,
@@ -431,6 +431,9 @@ pub struct Texture {
     target: GLenum,
     filtering: GLenum,
     wrapping: GLenum,
+
+    width: Option<usize>,
+    height: Option<usize>,
 }
 
 impl Texture {
@@ -453,6 +456,8 @@ impl Texture {
             target,
             filtering,
             wrapping,
+            width: None,
+            height: None,
         };
 
         result.bind();
@@ -472,7 +477,7 @@ impl Texture {
 
     /// Calls gl::TexImage2D.
     pub fn tex_image2d(
-        &self,
+        &mut self,
         width: GLint,
         height: GLint,
         internal_format: GLint,
@@ -480,6 +485,9 @@ impl Texture {
         bytes: &[u8],
     ) {
         self.bind();
+
+        self.width = Some(width as usize);
+        self.height = Some(height as usize);
 
         unsafe {
             gl::TexImage2D(
@@ -491,7 +499,7 @@ impl Texture {
                 0,
                 src_format,
                 gl::UNSIGNED_BYTE,
-                bytes.as_ptr() as *const _
+                bytes.as_ptr() as *const _,
             );
         }
 
@@ -499,15 +507,31 @@ impl Texture {
         check_opengl_errors();
     }
 
+    pub fn get_size(&self) -> Option<(usize, usize)> {
+        Some((
+            match self.width {
+                Some(w) => w,
+                None => return None,
+            },
+            match self.height {
+                Some(h) => h,
+                None => return None,
+            }
+        ))
+    }
+
     /// Load image from the given path (uses image crate) and supply the gl::TexImage2D
     /// with it.
-    pub fn tex_image2d_from_path(&self, path: &Path) -> Result<(), ImageError> {
+    pub fn tex_image2d_from_path(&mut self, path: &Path) -> Result<(), ImageError> {
         self.bind();
 
         let img = image::open(path)?;
 
         // Flip the image vertically
         let img = image::imageops::flip_vertical(&img);
+
+        self.width = Some(img.width() as usize);
+        self.height = Some(img.height() as usize);
 
         unsafe {
             use image::EncodableLayout;
@@ -550,10 +574,9 @@ impl Texture {
                 height,
                 format,
                 gl::UNSIGNED_BYTE,
-                bytes.as_ptr() as *const _
+                bytes.as_ptr() as *const _,
             )
         }
-
     }
 
     /// Activates the texture on the given texture `unit`.
