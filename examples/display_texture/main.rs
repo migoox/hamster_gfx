@@ -11,6 +11,9 @@ use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexB
 const SCREEN_WIDTH: u32 = 1600;
 const SCREEN_HEIGHT: u32 = 1200;
 
+const SIN_PIC_WIDTH: usize = 200;
+const SIN_PIC_HEIGHT: usize = 200;
+
 fn main() {
     // TO DO: callback for errors
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -51,19 +54,18 @@ fn main() {
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
     let mut egui_input = egui_integration::EguiInputHandler::new(&window);
 
-    let egui_txt = EguiUserTexture::new(
-        &mut egui_painter,
-        egui::TextureFilter::Linear,
-        100,
-        100,
-        false,
-        &vec![Color32::from_rgb(0, 15, 0); 100 * 100],
-    );
-
     let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
-    gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/debug.png")).unwrap();
+    gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
     let egui_txt = EguiUserTexture::from_gl_texture(&mut egui_painter, gl_texture, false).unwrap();
 
+    let egui_sin_txt = EguiUserTexture::new(
+        &mut egui_painter,
+        egui::TextureFilter::Linear,
+        SIN_PIC_WIDTH,
+        SIN_PIC_HEIGHT,
+        false,
+        &vec![Color32::from_rgb(15, 15, 15); SIN_PIC_WIDTH * SIN_PIC_HEIGHT],
+    );
 
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
@@ -137,6 +139,24 @@ fn main() {
             }
         }
 
+        {
+            // SINUS TEXTURE UPDATE
+            let mut data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
+
+            let line_width: f32 = 2.0;
+            for x in 0..SIN_PIC_WIDTH {
+                // get y position for x
+                let y = amplitude * ((x as f32) * std::f32::consts::PI / 180f32 + sine_shift).sin();
+                let y = SIN_PIC_HEIGHT as f32 / 2f32 - y;
+                data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
+            }
+
+            // update sinus shift so that it "moves" in each frame
+            sine_shift += 0.05f32;
+
+            egui_sin_txt.update(&data);
+        }
+
         // START AN EGUI FRAME (it should happen before egui integration update)
         egui_ctx.begin_frame(egui_input.take_raw_input());
 
@@ -165,8 +185,9 @@ fn main() {
             ui.label(" ");
             ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
             ui.label(" ");
-            if ui.button("Quit").clicked() {}
+            ui.add(egui::Image::new(egui_sin_txt.get_id(), egui_sin_txt.get_size()));
         });
+
 
         // END AN EGUI FRAME
         let egui::FullOutput {

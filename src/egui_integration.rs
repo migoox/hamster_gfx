@@ -340,6 +340,8 @@ pub struct EguiUserTexture {
 }
 
 impl EguiUserTexture {
+    // TODO: make it lazy
+
     /// EguiUserTexture cannot outlive painter
     pub fn new(
         painter: &mut EguiPainter,
@@ -348,7 +350,13 @@ impl EguiUserTexture {
         height: usize,
         srgb: bool,
         data: &[Color32],
-    ) -> EguiUserTexture<> {
+    ) -> EguiUserTexture {
+        assert_eq!(
+            width * height,
+            data.len(),
+            "Mismatch between texture size and texel count"
+        );
+
         let mut gl_texture = Texture::new(
             gl::TEXTURE_2D,
             match filtering {
@@ -396,7 +404,6 @@ impl EguiUserTexture {
         })
     }
 
-
     pub fn get_id(&self) -> TextureId {
         self.egui_txt_id
     }
@@ -405,8 +412,28 @@ impl EguiUserTexture {
         vec2(self.width as f32, self.height as f32)
     }
 
-    pub fn update(&mut self) {
-        todo!();
+    pub fn update(&self, data: &[Color32]) {
+        assert_eq!(
+            self.width * self.height,
+            data.len(),
+            "Mismatch between texture size and texel count"
+        );
+
+        let data: Vec<u8> = data.iter().flat_map(|c| c.to_array()).collect();
+
+        match self.textures.borrow().get(&self.egui_txt_id) {
+            Some(texture_data) => {
+                texture_data.texture.tex_sub_image2d(
+                    0,
+                    0,
+                    self.width as GLsizei,
+                    self.height as GLsizei,
+                    gl::RGBA,
+                    &data,
+                );
+            }
+            None => panic!("Egui texture is invalid"),
+        };
     }
 }
 
