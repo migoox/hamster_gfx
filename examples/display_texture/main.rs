@@ -128,6 +128,7 @@ fn main() {
     program.activate_sampler("u_texture", 3).unwrap();
 
     let mut clock = Instant::now();
+
     while !window.should_close() {
         // UPDATE INPUT
         for (_, event) in glfw::flush_messages(&events) {
@@ -197,7 +198,7 @@ fn main() {
             shapes,
         } = egui_ctx.end_frame();
 
-        egui_input.handle_clipboard(platform_output);
+        egui_input.handle_platform_output(platform_output, &mut window);
 
         // RENDER
         unsafe {

@@ -2,10 +2,12 @@ use std::path::Path;
 use core::default::Default;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::mem::transmute;
 use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
+use glfw::Cursor;
 use image::EncodableLayout;
 use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
 
@@ -443,16 +445,68 @@ impl Drop for EguiUserTexture {
     }
 }
 
+struct EguiCursorManager {
+    last_cursor: Option<glfw::StandardCursor>,
+}
+
+impl EguiCursorManager {
+    fn new() -> EguiCursorManager {
+        EguiCursorManager {
+            last_cursor: None,
+        }
+    }
+
+    pub fn set_cursor(&mut self, cursor_icon: egui::CursorIcon, glfw_window: &mut glfw::Window) {
+        let st_cursor = Self::translate_eguicursor_to_glfwcursor(cursor_icon);
+
+        if let Some(c) = self.last_cursor {
+           if c == st_cursor {
+               return;
+           }
+        }
+
+        glfw_window.set_cursor(Some(Cursor::standard(st_cursor)));
+        self.last_cursor = Some(st_cursor);
+    }
+
+    fn translate_eguicursor_to_glfwcursor(cursor_icon: egui::CursorIcon) -> glfw::StandardCursor {
+        match cursor_icon {
+            CursorIcon::Default => glfw::StandardCursor::Arrow,
+
+            CursorIcon::PointingHand => glfw::StandardCursor::Hand,
+
+            CursorIcon::ResizeHorizontal => glfw::StandardCursor::HResize,
+            CursorIcon::ResizeVertical => glfw::StandardCursor::VResize,
+
+            // TODO: GLFW doesnt have these specific resize cursors, so we'll just use the HResize and VResize ones instead
+            CursorIcon::ResizeNeSw => glfw::StandardCursor::HResize,
+            CursorIcon::ResizeNwSe => glfw::StandardCursor::VResize,
+
+            CursorIcon::Text => glfw::StandardCursor::IBeam,
+            CursorIcon::Crosshair => glfw::StandardCursor::Crosshair,
+
+            CursorIcon::Grab | CursorIcon::Grabbing => glfw::StandardCursor::Hand,
+
+            // TODO: Same for these
+            CursorIcon::NotAllowed | CursorIcon::NoDrop => glfw::StandardCursor::Arrow,
+            CursorIcon::Wait => glfw::StandardCursor::Arrow,
+            _ => glfw::StandardCursor::Arrow,
+        }
+    }
+}
+
 // from: https://github.com/cohaereo/egui_glfw_gl
 pub struct EguiInputHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
     input: RawInput,
     modifiers: Modifiers,
+    cursor_manager: EguiCursorManager,
+
 }
 
 impl EguiInputHandler {
-    pub fn new(glfw_window: &glfw::Window) -> Self {
+    pub fn new(glfw_window: &glfw::Window) -> EguiInputHandler {
         let (width, height) = glfw_window.get_framebuffer_size();
         EguiInputHandler {
             pointer_pos: Pos2::new(0f32, 0f32),
@@ -465,8 +519,10 @@ impl EguiInputHandler {
                 ..Default::default()
             },
             modifiers: Default::default(),
+            cursor_manager: EguiCursorManager::new(),
         }
     }
+
 
     pub fn handle_event(&mut self, event: glfw::WindowEvent) {
         use glfw::WindowEvent::*;
@@ -596,10 +652,12 @@ impl EguiInputHandler {
         }
     }
 
-    pub fn handle_clipboard(&mut self, platform_output: PlatformOutput) {
+    pub fn handle_platform_output(&mut self, platform_output: PlatformOutput, glfw_window: &mut glfw::Window) {
         if !platform_output.copied_text.is_empty() {
             self.copy_to_clipboard(platform_output.copied_text);
         }
+        self.cursor_manager.set_cursor(platform_output.cursor_icon, glfw_window);
+
     }
 
     pub fn update(&mut self, glfw_window: &glfw::Window, elapsed_time_as_secs: f64) {
@@ -691,30 +749,6 @@ impl EguiInputHandler {
                 return None;
             }
         })
-    }
-
-    fn translate_eguicursor_to_glfwcursor(cursor_icon: egui::CursorIcon) -> glfw::StandardCursor {
-        match cursor_icon {
-            CursorIcon::Default => glfw::StandardCursor::Arrow,
-
-            CursorIcon::PointingHand => glfw::StandardCursor::Hand,
-
-            CursorIcon::ResizeHorizontal => glfw::StandardCursor::HResize,
-            CursorIcon::ResizeVertical => glfw::StandardCursor::VResize,
-            // TODO: GLFW doesnt have these specific resize cursors, so we'll just use the HResize and VResize ones instead
-            CursorIcon::ResizeNeSw => glfw::StandardCursor::HResize,
-            CursorIcon::ResizeNwSe => glfw::StandardCursor::VResize,
-
-            CursorIcon::Text => glfw::StandardCursor::IBeam,
-            CursorIcon::Crosshair => glfw::StandardCursor::Crosshair,
-
-            CursorIcon::Grab | CursorIcon::Grabbing => glfw::StandardCursor::Hand,
-
-            // TODO: Same for these
-            CursorIcon::NotAllowed | CursorIcon::NoDrop => glfw::StandardCursor::Arrow,
-            CursorIcon::Wait => glfw::StandardCursor::Arrow,
-            _ => glfw::StandardCursor::Arrow,
-        }
     }
 }
 
