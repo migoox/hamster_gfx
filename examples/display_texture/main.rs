@@ -3,11 +3,16 @@ use std::time::Instant;
 use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
+use egui::Color32;
 use hamster_gfx::egui_integration;
+use hamster_gfx::egui_integration::EguiUserTexture;
 use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
 
 const SCREEN_WIDTH: u32 = 1600;
 const SCREEN_HEIGHT: u32 = 1200;
+
+const SIN_PIC_WIDTH: usize = 200;
+const SIN_PIC_HEIGHT: usize = 200;
 
 fn main() {
     // TO DO: callback for errors
@@ -49,10 +54,24 @@ fn main() {
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
     let mut egui_input = egui_integration::EguiInputHandler::new(&window);
 
+    let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
+    gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
+    let egui_txt = EguiUserTexture::from_gl_texture(&mut egui_painter, gl_texture, false).unwrap();
+
+    let egui_sin_txt = EguiUserTexture::new(
+        &mut egui_painter,
+        egui::TextureFilter::Linear,
+        SIN_PIC_WIDTH,
+        SIN_PIC_HEIGHT,
+        false,
+        &vec![Color32::from_rgb(15, 15, 15); SIN_PIC_WIDTH * SIN_PIC_HEIGHT],
+    );
+
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
     let mut test_str =
         "A text box to write in. Cut, copy, paste commands are available.".to_owned();
+
     // OPENGL WRAPPER TEST
     use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
     use hamster_gfx::renderer::Bindable;
@@ -120,39 +139,63 @@ fn main() {
             }
         }
 
+        {
+            // SINUS TEXTURE UPDATE
+            let mut data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
+
+            let line_width: f32 = 2.0;
+            for x in 0..SIN_PIC_WIDTH {
+                // get y position for x
+                let y = amplitude * ((x as f32) * std::f32::consts::PI / 180f32 + sine_shift).sin();
+                let y = SIN_PIC_HEIGHT as f32 / 2f32 - y;
+                data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
+            }
+
+            // update sinus shift so that it "moves" in each frame
+            sine_shift += 0.05f32;
+
+            egui_sin_txt.update(&data);
+        }
+
+        // START AN EGUI FRAME (it should happen before egui integration update)
+        egui_ctx.begin_frame(egui_input.take_raw_input());
+
+        // UPDATE EGUI INTEGRATION
+        egui_input.update(&window, clock.elapsed().as_secs_f64());
+        egui_painter.update(&window);
+
+        // Egui calls
+        egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
+            egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
+                ui.menu_button("File", |ui| {
+                    {
+                        let _ = ui.button("test 1");
+                    }
+                    ui.separator();
+                    {
+                        let _ = ui.button("test 2");
+                    }
+                });
+            });
+
+            ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
+            ui.separator();
+            ui.label(" ");
+            ui.text_edit_multiline(&mut test_str);
+            ui.label(" ");
+            ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
+            ui.label(" ");
+            ui.add(egui::Image::new(egui_sin_txt.get_id(), egui_sin_txt.get_size()));
+        });
+
+
+        // END AN EGUI FRAME
         let egui::FullOutput {
             platform_output,
             repaint_after: _,
             textures_delta,
             shapes,
-        } = egui_ctx.run(egui_input.take_raw_input(), |ctx| {
-            // UPDATE EGUI INTEGRATION
-            egui_input.update(&window, clock.elapsed().as_secs_f64());
-            egui_painter.update(&window);
-
-            // Egui calls
-            egui::Window::new("Egui with GLFW").show(&egui_ctx, |ui| {
-                egui::TopBottomPanel::top("Top").show(&egui_ctx, |ui| {
-                    ui.menu_button("File", |ui| {
-                        {
-                            let _ = ui.button("test 1");
-                        }
-                        ui.separator();
-                        {
-                            let _ = ui.button("test 2");
-                        }
-                    });
-                });
-
-                ui.separator();
-                ui.label(" ");
-                ui.text_edit_multiline(&mut test_str);
-                ui.label(" ");
-                ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
-                ui.label(" ");
-                if ui.button("Quit").clicked() {}
-            });
-        });
+        } = egui_ctx.end_frame();
 
         egui_input.handle_clipboard(platform_output);
 

@@ -1,10 +1,27 @@
 use std::path::Path;
 use core::default::Default;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
+use image::EncodableLayout;
 use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
+
+struct TextureData {
+    texture: Texture,
+    srgb: bool,
+}
+
+impl TextureData {
+    pub fn new(texture: Texture, srgb: bool) -> TextureData {
+        TextureData {
+            texture,
+            srgb,
+        }
+    }
+}
 
 /// Egui Painter uses 0th texture unit. If you are going to use 0th
 /// texture unit, remember to activate it once per draw call.
@@ -17,7 +34,7 @@ pub struct EguiPainter {
     vbo_tex: Buffer,
     ebo: Buffer,
 
-    textures: HashMap<TextureId, Texture>,
+    textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
 
     canvas_width: i32,
     canvas_height: i32,
@@ -57,7 +74,7 @@ impl EguiPainter {
             vbo_col,
             vbo_tex,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
-            textures: HashMap::new(),
+            textures: Rc::new(RefCell::new(HashMap::new())),
             canvas_width: 0,
             canvas_height: 0,
             native_pixels_per_point: 1.0,
@@ -78,10 +95,6 @@ impl EguiPainter {
 
         // Prepare OpenGL
         unsafe {
-            // Let OpenGL know we are dealing with SRGB colors so that it
-            // can do the blending correctly. Not setting the framebuffer
-            // leads to darkened, oversaturated colors.
-            gl::Enable(gl::FRAMEBUFFER_SRGB);
             gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
@@ -117,11 +130,11 @@ impl EguiPainter {
 
         // Clean OpenGL state
         unsafe {
-            gl::Disable(gl::FRAMEBUFFER_SRGB);
             gl::Disable(gl::SCISSOR_TEST);
             gl::Disable(gl::BLEND);
         }
     }
+
 
     fn update_textures(&mut self, textures_delta: &TexturesDelta) {
         for (tex_id, image_delta) in &textures_delta.set {
@@ -162,27 +175,27 @@ impl EguiPainter {
                 // at image_delta.pos so in this case we won't allocate anything new, and no entry
                 // will be added to textures hash map.
 
-                // Find texture (it should exist)
-                let texture = match self.textures.get_mut(&tex_id) {
-                    Some(t) => t,
+                match self.textures.borrow_mut().get(&tex_id) {
+                    Some(texture_data) => {
+                        // Update a sub-region of an already allocated texture with the patch
+                        texture_data.texture.tex_sub_image2d(
+                            x_offset as GLint,
+                            y_offset as GLint,
+                            width as GLsizei,
+                            height as GLsizei,
+                            gl::RGBA,
+                            &data,
+                        );
+                    }
+                    // The texture should exist at this point
                     None => panic!("Failed to find egui texture {:?}", tex_id),
                 };
-
-                // Update a sub-region of an already allocated texture with the patch
-                texture.tex_sub_image2d(
-                    x_offset as GLint,
-                    y_offset as GLint,
-                    width as GLsizei,
-                    height as GLsizei,
-                    gl::RGBA,
-                    &data,
-                );
             } else {
                 // If image_delta.pos is None, this describes the whole new texture. In this
                 // we allocate new texture.
 
                 // Create a new OpenGL texture
-                let texture = Texture::new(
+                let mut texture = Texture::new(
                     gl::TEXTURE_2D,
                     gl::LINEAR,
                     gl::CLAMP_TO_EDGE,
@@ -199,7 +212,7 @@ impl EguiPainter {
 
                 // Insert egui texture, if there was a texture with the given tex_id
                 // it will be dropped.
-                self.textures.insert(*tex_id, texture);
+                self.textures.borrow_mut().insert(*tex_id, TextureData::new(texture, true));
             }
         }
     }
@@ -269,7 +282,7 @@ impl EguiPainter {
         ).unwrap();
 
         self.vbo_col.buffer_data(
-             core::mem::size_of::<u8>() * colors.len(),
+            core::mem::size_of::<u8>() * colors.len(),
             colors.as_ptr() as *const GLvoid,
         ).unwrap();
 
@@ -280,9 +293,16 @@ impl EguiPainter {
 
         // Bind texture associated with the mesh
         self.shader_program.bind();
-        self.shader_program.activate_sampler("u_sampler", 0).unwrap();
-        let texture = self.textures.get(&mesh.texture_id).unwrap();
-        texture.activate(0);
+
+        let mut srgb = false;
+        match self.textures.borrow().get(&mesh.texture_id) {
+            Some(texture_data) => {
+                texture_data.texture.activate(0);
+                srgb = texture_data.srgb;
+            }
+            // The texture should exist at this point
+            None => panic!("Failed to find egui texture {:?}", mesh.texture_id),
+        };
         self.vao.bind();
         self.vao.use_vbo(&self.vbo_pos);
         self.vao.use_vbo(&self.vbo_col);
@@ -290,13 +310,136 @@ impl EguiPainter {
         self.vao.use_ebo(&self.ebo);
 
         unsafe {
+            if srgb {
+                // Let OpenGL know we are dealing with SRGB colors so that it
+                // can do the blending correctly. Not setting the framebuffer
+                // leads to darkened, over-saturated colors.
+                gl::Enable(gl::FRAMEBUFFER_SRGB);
+            }
+
             gl::DrawElements(
                 gl::TRIANGLES,
                 mesh.indices.len() as _,
                 gl::UNSIGNED_INT,
                 core::ptr::null(),
             );
+
+            if srgb {
+                gl::Disable(gl::FRAMEBUFFER_SRGB);
+            }
         }
+    }
+}
+
+/// Allows
+pub struct EguiUserTexture {
+    egui_txt_id: TextureId,
+    textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
+    width: usize,
+    height: usize,
+}
+
+impl EguiUserTexture {
+    // TODO: make it lazy
+
+    /// EguiUserTexture cannot outlive painter
+    pub fn new(
+        painter: &mut EguiPainter,
+        filtering: TextureFilter,
+        width: usize,
+        height: usize,
+        srgb: bool,
+        data: &[Color32],
+    ) -> EguiUserTexture {
+        assert_eq!(
+            width * height,
+            data.len(),
+            "Mismatch between texture size and texel count"
+        );
+
+        let mut gl_texture = Texture::new(
+            gl::TEXTURE_2D,
+            match filtering {
+                TextureFilter::Linear => gl::LINEAR,
+                TextureFilter::Nearest => gl::NEAREST,
+            },
+            gl::CLAMP_TO_EDGE,
+        );
+
+        let data: Vec<u8> = data.iter().flat_map(|c| c.to_array()).collect();
+
+        gl_texture.tex_image2d(
+            width as GLint,
+            height as GLint,
+            gl::RGBA as GLint,
+            gl::RGBA,
+            data.as_bytes(),
+        );
+
+        let id = TextureId::User(painter.textures.borrow().len() as u64);
+        painter.textures.borrow_mut().insert(id, TextureData::new(gl_texture, srgb));
+
+        EguiUserTexture {
+            egui_txt_id: id,
+            textures: Rc::clone(&painter.textures),
+            width,
+            height,
+        }
+    }
+
+    pub fn from_gl_texture(painter: &mut EguiPainter, gl_texture: Texture, srgb: bool) -> Result<EguiUserTexture, String> {
+        let (width, height) = match gl_texture.get_size() {
+            Some(s) => (s.0, s.1),
+            None => return Err("OpenGL Texture has no data.".to_string()),
+        };
+
+        let id = TextureId::User(painter.textures.borrow().len() as u64);
+        painter.textures.borrow_mut().insert(id, TextureData::new(gl_texture, srgb));
+
+        Ok(EguiUserTexture {
+            egui_txt_id: id,
+            textures: Rc::clone(&painter.textures),
+            width,
+            height,
+        })
+    }
+
+    pub fn get_id(&self) -> TextureId {
+        self.egui_txt_id
+    }
+
+    pub fn get_size(&self) -> Vec2 {
+        vec2(self.width as f32, self.height as f32)
+    }
+
+    pub fn update(&self, data: &[Color32]) {
+        assert_eq!(
+            self.width * self.height,
+            data.len(),
+            "Mismatch between texture size and texel count"
+        );
+
+        let data: Vec<u8> = data.iter().flat_map(|c| c.to_array()).collect();
+
+        match self.textures.borrow().get(&self.egui_txt_id) {
+            Some(texture_data) => {
+                texture_data.texture.tex_sub_image2d(
+                    0,
+                    0,
+                    self.width as GLsizei,
+                    self.height as GLsizei,
+                    gl::RGBA,
+                    &data,
+                );
+            }
+            None => panic!("Egui texture is invalid"),
+        };
+    }
+}
+
+impl Drop for EguiUserTexture {
+    fn drop(&mut self) {
+        self.textures.borrow_mut().remove(&self.egui_txt_id);
     }
 }
 
