@@ -579,7 +579,7 @@ impl Texture {
 
             // Bind texture to the unit in order to render something with it
             // This call is necessary, since self.bind() doesn't have to call gl::BindTexture
-            if gl_bind_called == false {
+            if !gl_bind_called {
                 gl::BindTexture(self.target, self.id);
             }
         }
