@@ -56,8 +56,14 @@ fn main() {
         egui::TextureFilter::Linear,
         100,
         100,
+        false,
         &vec![Color32::from_rgb(0, 15, 0); 100 * 100],
     );
+
+    let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
+    gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/debug.png")).unwrap();
+    let egui_txt = EguiUserTexture::from_gl_texture(&mut egui_painter, gl_texture, false).unwrap();
+
 
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
@@ -131,7 +137,9 @@ fn main() {
             }
         }
 
+        // START AN EGUI FRAME (it should happen before egui integration update)
         egui_ctx.begin_frame(egui_input.take_raw_input());
+
         // UPDATE EGUI INTEGRATION
         egui_input.update(&window, clock.elapsed().as_secs_f64());
         egui_painter.update(&window);
@@ -150,7 +158,7 @@ fn main() {
                 });
             });
 
-            ui.add(egui::Image::new(egui_txt.get_id(), egui::vec2(100 as f32, 100 as f32)));
+            ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
             ui.separator();
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
@@ -159,6 +167,8 @@ fn main() {
             ui.label(" ");
             if ui.button("Quit").clicked() {}
         });
+
+        // END AN EGUI FRAME
         let egui::FullOutput {
             platform_output,
             repaint_after: _,

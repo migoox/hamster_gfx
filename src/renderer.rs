@@ -557,7 +557,36 @@ impl Texture {
 
         Ok(())
     }
+    pub fn tex_image2d_from_path_no_flip(&mut self, path: &Path) -> Result<(), ImageError> {
+        self.bind();
 
+        let img = image::open(path)?;
+
+        let img = img.to_rgba8();
+
+        self.width = Some(img.width() as usize);
+        self.height = Some(img.height() as usize);
+
+        unsafe {
+            use image::EncodableLayout;
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                img.width() as i32,
+                img.height() as i32,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                img.as_bytes().as_ptr() as *const _,
+            );
+        }
+
+        #[cfg(feature = "gl_debug")]
+        check_opengl_errors();
+
+        Ok(())
+    }
     pub fn tex_sub_image2d(
         &self,
         x_offset: GLint,
