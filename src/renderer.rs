@@ -520,6 +520,10 @@ impl Texture {
         ))
     }
 
+    pub fn get_filtering(&self) -> GLenum {
+        self.filtering
+    }
+
     /// Load image from the given path (uses image crate) and supply the gl::TexImage2D
     /// with it.
     pub fn tex_image2d_from_path(&mut self, path: &Path) -> Result<(), ImageError> {
