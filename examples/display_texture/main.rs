@@ -52,8 +52,9 @@ fn main() {
     // EGUI INTEGRATION
     let egui_ctx = egui::Context::default();
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
-    let mut egui_input = egui_integration::EguiIOHandler::new(&window);
+    let mut egui_io = egui_integration::EguiIOHandler::new(&window);
 
+    // Egui Textures examples
     let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
     gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
     let egui_txt = EguiUserTexture::from_gl_texture(&mut egui_painter, gl_texture, false).unwrap();
@@ -66,6 +67,8 @@ fn main() {
         false,
         &vec![Color32::from_rgb(15, 15, 15); SIN_PIC_WIDTH * SIN_PIC_HEIGHT],
     );
+
+    let mut sin_data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
 
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
@@ -132,37 +135,43 @@ fn main() {
     while !window.should_close() {
         // UPDATE INPUT
         for (_, event) in glfw::flush_messages(&events) {
-            match event {
-                glfw::WindowEvent::Close => window.set_should_close(true),
-                _ => {
-                    egui_input.handle_event(event);
-                }
+            if event == glfw::WindowEvent::Close {
+                window.should_close();
+            } else {
+                match event {
+                    // Custom event handling
+                    _ => (),
+                };
+
+                // Move GLFW events as an input into EguiIOHandler
+                egui_io.handle_event(event);
             }
         }
 
         {
             // SINUS TEXTURE UPDATE
-            let mut data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
 
-            let line_width: f32 = 2.0;
             for x in 0..SIN_PIC_WIDTH {
+                for y in 0..SIN_PIC_HEIGHT {
+                    sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::BLACK;
+                }
                 // get y position for x
                 let y = amplitude * ((x as f32) * std::f32::consts::PI / 180f32 + sine_shift).sin();
                 let y = SIN_PIC_HEIGHT as f32 / 2f32 - y;
-                data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
+                sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
             }
 
             // update sinus shift so that it "moves" in each frame
             sine_shift += 0.05f32;
 
-            egui_sin_txt.update(&data);
+            egui_sin_txt.update(&sin_data);
         }
 
         // START AN EGUI FRAME (it should happen before egui integration update)
-        egui_ctx.begin_frame(egui_input.take_raw_input());
+        egui_ctx.begin_frame(egui_io.take_raw_input());
 
         // UPDATE EGUI INTEGRATION
-        egui_input.update(&window, clock.elapsed().as_secs_f64());
+        egui_io.update(&window, clock.elapsed().as_secs_f64());
         egui_painter.update(&window);
 
         // Egui calls
@@ -198,7 +207,7 @@ fn main() {
             shapes,
         } = egui_ctx.end_frame();
 
-        egui_input.handle_platform_output(platform_output, &mut window);
+        egui_io.handle_platform_output(platform_output, &mut window);
 
         // RENDER
         unsafe {
