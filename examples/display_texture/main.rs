@@ -52,7 +52,7 @@ fn main() {
     // EGUI INTEGRATION
     let egui_ctx = egui::Context::default();
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
-    let mut egui_input = egui_integration::EguiInputHandler::new(&window);
+    let mut egui_input = egui_integration::EguiIOHandler::new(&window);
 
     let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
     gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();

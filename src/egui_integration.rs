@@ -2,7 +2,6 @@ use std::path::Path;
 use core::default::Default;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::mem::transmute;
 use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
@@ -496,19 +495,18 @@ impl EguiCursorManager {
 }
 
 // from: https://github.com/cohaereo/egui_glfw_gl
-pub struct EguiInputHandler {
+pub struct EguiIOHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
     input: RawInput,
     modifiers: Modifiers,
     cursor_manager: EguiCursorManager,
-
 }
 
-impl EguiInputHandler {
-    pub fn new(glfw_window: &glfw::Window) -> EguiInputHandler {
+impl EguiIOHandler {
+    pub fn new(glfw_window: &glfw::Window) -> EguiIOHandler {
         let (width, height) = glfw_window.get_framebuffer_size();
-        EguiInputHandler {
+        EguiIOHandler {
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: Self::init_clipboard(),
             input: RawInput {
@@ -522,7 +520,6 @@ impl EguiInputHandler {
             cursor_manager: EguiCursorManager::new(),
         }
     }
-
 
     pub fn handle_event(&mut self, event: glfw::WindowEvent) {
         use glfw::WindowEvent::*;
