@@ -1,8 +1,75 @@
+//! # gl and glfw egui integration
+//! This module provides utility that allows simple gl and glfw integration with the egui library.
+//! ## Usage
+//! ```rust
+//! use glfw::Context;
+//! let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+//! // ...
+//! let (mut window, events) = glfw
+//!  .create_window(
+//!             SCREEN_WIDTH,
+//!             SCREEN_HEIGHT,
+//!             "Window",
+//!             glfw::WindowMode::Windowed,
+//!         )
+//!         .expect("Failed to create the GLFW window");
+//! // ...
+//! let mut egui_ctx = egui::Context::default();
+//! // ...
+//! // Initialize egui integration
+//! let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
+//! let mut egui_painter = hamster_gfx::egui_integration::EguiPainter::new(&window);
+//! // ...
+//! let mut clock = std::time::Instant::now();
+//! while !window.should_close() {
+//!     for (_, event) in glfw::flush_messages(&events) {
+//!         if event == glfw::WindowEvent::Close {
+//!             window.set_should_close(true);
+//!         } else {
+//!             match event {
+//!                 // GLFW event handling
+//!                 _ => (),
+//!             };
+//!
+//!             // Move GLFW events as an input into EguiIOHandler
+//!             egui_io.handle_event(event);
+//!         }
+//!
+//!     // Begin egui frame
+//!     egui_ctx.begin_frame(egui_io.take_raw_input());
+//!
+//!     // Update egui integration
+//!     egui_io.update(&window, clock.elapsed().as_secs_f64());
+//!     egui_painter.update(&window);
+//!
+//!     // Do egui stuff (e.g. display an egui window with a button)
+//!     // ...
+//!
+//!     // End egui frame
+//!     let egui::FullOutput {
+//!             platform_output,
+//!             repaint_after: _,
+//!             textures_delta,
+//!             shapes,
+//!         } = egui_ctx.end_frame();
+//!
+//!     // Handle platform output
+//!     egui_io.handle_platform_output(platform_output, &mut window);
+//!
+//!     // Render OpenGL stuff (e.g. draw a triangle)
+//!     // ...
+//!
+//!     // Render egui
+//!     egui_painter.paint(&egui_ctx.tessellate(shapes), &textures_delta);
+//!
+//!     window.swap_buffers();
+//!     glfw.poll_events();
+//! }
+//! ```
 use std::path::Path;
 use core::default::Default;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::mem::transmute;
 use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
@@ -25,8 +92,9 @@ impl TextureData {
     }
 }
 
+/// Allows egui rendering.
 /// Egui Painter uses 0th texture unit. If you are going to use 0th
-/// texture unit, remember to activate it once per draw call.
+/// texture unit, remember to bind it once per draw call.
 pub struct EguiPainter {
     shader_program: ShaderProgram,
 
@@ -44,6 +112,7 @@ pub struct EguiPainter {
 }
 
 impl EguiPainter {
+    /// Creates a new instance of EguiPainter.
     pub fn new(glfw_window: &glfw::Window) -> EguiPainter {
         let vs = Shader::compile_from_path(&Path::new("resources/egui_shaders/vertex.vert"), gl::VERTEX_SHADER)
             .expect("Painter couldn't load the vertex egui_shader");
@@ -85,12 +154,13 @@ impl EguiPainter {
         result
     }
 
+    /// Updates screen rectangle and native pixels per point.
     pub fn update(&mut self, glfw_window: &glfw::Window) {
         (self.canvas_width, self.canvas_height) = glfw_window.get_framebuffer_size();
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
 
-    /// Paints and updates egui textures
+    /// Paints and updates egui textures.
     pub fn paint(&mut self, clipped_primitives: &Vec<ClippedPrimitive>, texture_delta: &TexturesDelta) {
         // Update textures if they are already uploaded to the OpenGL or upload them
         self.update_textures(texture_delta);
@@ -137,7 +207,8 @@ impl EguiPainter {
         }
     }
 
-
+    // Handles egui textures delta, uploads their content into OpenGL buffers or updates
+    // sub-buffers.
     fn update_textures(&mut self, textures_delta: &TexturesDelta) {
         for (tex_id, image_delta) in &textures_delta.set {
 
@@ -219,7 +290,7 @@ impl EguiPainter {
         }
     }
 
-    pub fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
+    fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
         debug_assert!(mesh.is_valid());
 
         // BeginFrom: https://github.com/emilk/egui/blob/master/crates/egui_glium/src/painter.rs
@@ -333,7 +404,59 @@ impl EguiPainter {
     }
 }
 
-/// Allows
+/// Allows creating egui textures and passing them to [`egui::Image::new()`].
+/// [`EguiUserTexture`] **cannot outlive** [`EguiPainter`] instance.
+/// ## SRGB format
+/// Egui uses textures stored in SRGB format, so everytime an egui texture
+/// is in use, [`EguiPainter`] sets [`gl::FRAMEBUFFER_SRGB`] flag before the draw call.
+/// For that reason [`EguiPainter`]
+/// needs to know if your texture is in srgb format as well, if it is not `srgb` flag
+/// must be set to `false`.
+/// ## Example
+/// ```rust
+/// use hamster_gfx::egui_integration::{EguiUserTexture, EguiPainter, EguiIOHandler};
+/// // ...
+/// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+/// // Create GLFW window
+/// let (mut window, events) = glfw
+///     .create_window(
+///         SCREEN_WIDTH,
+///         SCREEN_HEIGHT,
+///         "Window",
+///         glfw::WindowMode::Windowed,
+///     )
+///     .expect("Failed to create the GLFW window");
+/// // ...
+/// let egui_ctx = egui::Context::default();
+/// let mut egui_painter = EguiPainter::new(&window);
+/// let mut egui_io = EguiIOHandler::new(&window);
+/// // ...
+/// // Load the texture
+/// let mut egui_txt = EguiUserTexture::from_image_path(
+///     &mut egui_painter,
+///     &std::path::Path::new("path/to/your/image.png"),
+///     false,
+/// );
+/// // ...
+/// while !window.should_close() {
+///     // ...
+///     egui_ctx.begin_frame(egui_io.take_raw_input());
+///
+///     egui::Window::new("Egui window").show(&egui_ctx, |ui| {
+///         // Display Image with the texture
+///         ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
+///     });
+///
+///     let egui::FullOutput {
+///         platform_output,
+///         repaint_after: _,
+///         textures_delta,
+///         shapes,
+///     } = egui_ctx.end_frame();
+///     // ...
+/// }
+/// ```
+///
 pub struct EguiUserTexture {
     egui_txt_id: TextureId,
     textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
@@ -342,9 +465,8 @@ pub struct EguiUserTexture {
 }
 
 impl EguiUserTexture {
-    // TODO: make it lazy
-
-    /// EguiUserTexture cannot outlive painter
+    /// Creates a new OpenGL texture and passes `data` to it's buffer. Returns
+    /// new instance of an EguiUserTexture.
     pub fn new(
         painter: &mut EguiPainter,
         filtering: TextureFilter,
@@ -389,6 +511,7 @@ impl EguiUserTexture {
         }
     }
 
+    /// Takes ownership of the `gl_texture` and creates a new instance of an EguiUserTexture.
     pub fn from_gl_texture(painter: &mut EguiPainter, gl_texture: Texture, srgb: bool) -> Result<EguiUserTexture, String> {
         let (width, height) = match gl_texture.get_size() {
             Some(s) => (s.0, s.1),
@@ -406,14 +529,25 @@ impl EguiUserTexture {
         })
     }
 
+    /// Creates a new OpenGL texture and passes 2D image specified by the `path` to it's buffer.
+    /// Returns a new instance of an EguiUserTexture.
+    pub fn from_image_path(painter: &mut EguiPainter, path: &Path, srgb: bool) -> Result<EguiUserTexture, String> {
+        let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
+        gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
+        Self::from_gl_texture(painter, gl_texture, srgb)
+    }
+
+    /// Returns copy of the egui texture id.
     pub fn get_id(&self) -> TextureId {
         self.egui_txt_id
     }
 
+    /// Returns texture size as [`egui::Vec2`].
     pub fn get_size(&self) -> Vec2 {
         vec2(self.width as f32, self.height as f32)
     }
 
+    /// Updates OpenGL buffer (calls [`gl::TexSubImage2D()`]), with the given data.
     pub fn update(&self, data: &[Color32]) {
         assert_eq!(
             self.width * self.height,
@@ -456,13 +590,14 @@ impl EguiCursorManager {
         }
     }
 
+    // Changes the current cursor
     pub fn set_cursor(&mut self, cursor_icon: egui::CursorIcon, glfw_window: &mut glfw::Window) {
         let st_cursor = Self::translate_eguicursor_to_glfwcursor(cursor_icon);
 
         if let Some(c) = self.last_cursor {
-           if c == st_cursor {
-               return;
-           }
+            if c == st_cursor {
+                return;
+            }
         }
 
         glfw_window.set_cursor(Some(Cursor::standard(st_cursor)));
@@ -495,20 +630,21 @@ impl EguiCursorManager {
     }
 }
 
-// from: https://github.com/cohaereo/egui_glfw_gl
-pub struct EguiInputHandler {
+/// This structure allows translation of glfw events into egui events (input handling)
+/// and egui platform output handling (output handling).
+pub struct EguiIOHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
     input: RawInput,
     modifiers: Modifiers,
     cursor_manager: EguiCursorManager,
-
 }
 
-impl EguiInputHandler {
-    pub fn new(glfw_window: &glfw::Window) -> EguiInputHandler {
+impl EguiIOHandler {
+    /// Creates a new instance of an EguiIOHandler.
+    pub fn new(glfw_window: &glfw::Window) -> EguiIOHandler {
         let (width, height) = glfw_window.get_framebuffer_size();
-        EguiInputHandler {
+        EguiIOHandler {
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: Self::init_clipboard(),
             input: RawInput {
@@ -523,7 +659,7 @@ impl EguiInputHandler {
         }
     }
 
-
+    /// Translates glfw events into egui events and pushes them onto egui event queue.
     pub fn handle_event(&mut self, event: glfw::WindowEvent) {
         use glfw::WindowEvent::*;
 
@@ -586,7 +722,6 @@ impl EguiInputHandler {
                         // TODO: GLFW doesn't seem to support the mac command key
                         //       mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
                         command: (keymod & Mod::Control == Mod::Control),
-
                         ..Default::default()
                     };
 
@@ -610,7 +745,6 @@ impl EguiInputHandler {
                         // TODO: GLFW doesn't seem to support the mac command key
                         //       mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
                         command: (keymod & Mod::Control == Mod::Control),
-
                         ..Default::default()
                     };
 
@@ -652,14 +786,16 @@ impl EguiInputHandler {
         }
     }
 
+    /// Handles egui platform output, that is returned every frame by [`egui::Context::end_frame()`] and [`egui::Context::run()`] functions.
+    /// Mutable window borrow is required, since this function may change cursor image.
     pub fn handle_platform_output(&mut self, platform_output: PlatformOutput, glfw_window: &mut glfw::Window) {
         if !platform_output.copied_text.is_empty() {
             self.copy_to_clipboard(platform_output.copied_text);
         }
         self.cursor_manager.set_cursor(platform_output.cursor_icon, glfw_window);
-
     }
 
+    /// Updates screen rectangle, native pixels per point and elapsed time.
     pub fn update(&mut self, glfw_window: &glfw::Window, elapsed_time_as_secs: f64) {
         let (width, height) = glfw_window.get_framebuffer_size();
         let native_pixels_per_point = glfw_window.get_content_scale().0;
@@ -672,19 +808,13 @@ impl EguiInputHandler {
         self.input.pixels_per_point = Some(native_pixels_per_point);
     }
 
-    pub fn copy_to_clipboard(&mut self, copy_text: String) {
-        if let Some(clipboard) = self.clipboard.as_mut() {
-            let result = clipboard.set_contents(copy_text);
-            if result.is_err() {
-                dbg!("Unable to set clipboard content.");
-            }
-        }
-    }
-
+    /// Returns [`egui::RawInput`] that should be moved into [`egui::Context::run()`] or
+    /// [`egui::Context::begin_frame()`] function.
     pub fn take_raw_input(&mut self) -> RawInput {
         self.input.take()
     }
 
+    // Creates cli-clipboard context.
     fn init_clipboard() -> Option<ClipboardContext> {
         match ClipboardContext::new() {
             Ok(clipboard) => Some(clipboard),
@@ -695,7 +825,19 @@ impl EguiInputHandler {
         }
     }
 
+    // Uses cli-clipboard library in order to put copied text into the system clipboard.
+    fn copy_to_clipboard(&mut self, copy_text: String) {
+        if let Some(clipboard) = self.clipboard.as_mut() {
+            let result = clipboard.set_contents(copy_text);
+            if result.is_err() {
+                dbg!("Unable to set clipboard content.");
+            }
+        }
+    }
+
+    // Translates glfw key codes into egui key codes.
     fn translate_glfwkey_to_eguikey(key: glfw::Key) -> Option<egui::Key> {
+        // From: https://github.com/cohaereo/egui_glfw_gl
         use glfw::Key::*;
 
         Some(match key {
@@ -703,14 +845,11 @@ impl EguiInputHandler {
             Up => Key::ArrowUp,
             Right => Key::ArrowRight,
             Down => Key::ArrowDown,
-
             Escape => Key::Escape,
             Tab => Key::Tab,
             Backspace => Key::Backspace,
             Space => Key::Space,
-
             Enter => Key::Enter,
-
             Insert => Key::Insert,
             Home => Key::Home,
             Delete => Key::Delete,
@@ -744,7 +883,6 @@ impl EguiInputHandler {
             X => Key::X,
             Y => Key::Y,
             Z => Key::Z,
-
             _ => {
                 return None;
             }
