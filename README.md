@@ -3,3 +3,4 @@ HamsterGFX provides a basic wrapper for writing OpenGL and an intuitive abstract
 ## Credits
 - https://github.com/emilk/egui
 - https://github.com/cohaereo/egui_glfw_gl
+- https://github.com/emilk/egui/tree/master/crates/egui_glium
