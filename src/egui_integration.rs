@@ -1,3 +1,71 @@
+//! # gl and glfw egui integration
+//! This module provides utility that allows simple gl and glfw integration with the egui library.
+//! ## Usage
+//! ```rust
+//! use glfw::Context;
+//! let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+//! // ...
+//! let (mut window, events) = glfw
+//!  .create_window(
+//!             SCREEN_WIDTH,
+//!             SCREEN_HEIGHT,
+//!             "Window",
+//!             glfw::WindowMode::Windowed,
+//!         )
+//!         .expect("Failed to create the GLFW window");
+//! // ...
+//! let mut egui_ctx = egui::Context::default();
+//! // ..
+//! // Initialize egui integration
+//! let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
+//! let mut egui_painter = hamster_gfx::egui_integration::EguiPainter::new(&window);
+//! // ...
+//! let mut clock = std::time::Instant::now();
+//! while !window.should_close() {
+//!     for (_, event) in glfw::flush_messages(&events) {
+//!         if event == glfw::WindowEvent::Close {
+//!             window.set_should_close(true);
+//!         } else {
+//!             match event {
+//!                 // GLFW event handling
+//!                 _ => (),
+//!             };
+//!
+//!             // Move GLFW events as an input into EguiIOHandler
+//!             egui_io.handle_event(event);
+//!         }
+//!
+//!     // Begin egui frame
+//!     egui_ctx.begin_frame(egui_io.take_raw_input());
+//!
+//!     // Update egui I/O handler
+//!     egui_io.update(&window, clock.elapsed().as_secs_f64());
+//!     egui_painter.update(&window);
+//!
+//!     // Do egui stuff (e.g. display an egui window with a button)
+//!     // ...
+//!
+//!     // End egui frame
+//!     let egui::FullOutput {
+//!             platform_output,
+//!             repaint_after: _,
+//!             textures_delta,
+//!             shapes,
+//!         } = egui_ctx.end_frame();
+//!
+//!     // Handle platform output
+//!     egui_io.handle_platform_output(platform_output, &mut window);
+//!
+//!     // Render OpenGL stuff (e.g. draw a triangle)
+//!     // ...
+//!
+//!     // Render egui
+//!     egui_painter.paint(&egui_ctx.tessellate(shapes), &textures_delta);
+//!
+//!     window.swap_buffers();
+//!     glfw.poll_events();
+//! }
+//! ```
 use std::path::Path;
 use core::default::Default;
 use std::cell::RefCell;
@@ -24,8 +92,9 @@ impl TextureData {
     }
 }
 
+/// Allows egui rendering.
 /// Egui Painter uses 0th texture unit. If you are going to use 0th
-/// texture unit, remember to activate it once per draw call.
+/// texture unit, remember to bind it once per draw call.
 pub struct EguiPainter {
     shader_program: ShaderProgram,
 
@@ -43,6 +112,7 @@ pub struct EguiPainter {
 }
 
 impl EguiPainter {
+    /// Creates a new instance of EguiPainter
     pub fn new(glfw_window: &glfw::Window) -> EguiPainter {
         let vs = Shader::compile_from_path(&Path::new("resources/egui_shaders/vertex.vert"), gl::VERTEX_SHADER)
             .expect("Painter couldn't load the vertex egui_shader");
@@ -84,12 +154,13 @@ impl EguiPainter {
         result
     }
 
+    /// Updates screen rectangle and native pixels per point
     pub fn update(&mut self, glfw_window: &glfw::Window) {
         (self.canvas_width, self.canvas_height) = glfw_window.get_framebuffer_size();
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
 
-    /// Paints and updates egui textures
+    /// Paints and updates egui textures.
     pub fn paint(&mut self, clipped_primitives: &Vec<ClippedPrimitive>, texture_delta: &TexturesDelta) {
         // Update textures if they are already uploaded to the OpenGL or upload them
         self.update_textures(texture_delta);
@@ -136,7 +207,8 @@ impl EguiPainter {
         }
     }
 
-
+    // Handles egui textures delta, uploads their content into OpenGL buffers or updates
+    // sub-buffers.
     fn update_textures(&mut self, textures_delta: &TexturesDelta) {
         for (tex_id, image_delta) in &textures_delta.set {
 
@@ -332,7 +404,7 @@ impl EguiPainter {
     }
 }
 
-/// Allows
+/// Allows creating egui textures
 pub struct EguiUserTexture {
     egui_txt_id: TextureId,
     textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
@@ -501,60 +573,6 @@ impl EguiCursorManager {
 
 /// This structure allows translation of glfw events into egui events (input)
 /// and egui platform output handling (output).
-/// ```rust
-/// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-/// // ...
-/// let (mut window, events) = glfw
-///  .create_window(
-///             SCREEN_WIDTH,
-///             SCREEN_HEIGHT,
-///             "Window",
-///             glfw::WindowMode::Windowed,
-///         )
-///         .expect("Failed to create the GLFW window");
-/// // ...
-/// let mut egui_ctx = egui::Context::default();
-/// let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
-/// // ...
-/// let mut clock = std::time::Instant::now();
-/// while !window.should_close() {
-///     for (_, event) in glfw::flush_messages(&events) {
-///         if event == glfw::WindowEvent::Close {
-///             window.set_should_close(true);
-///         } else {
-///             match event {
-///                 // GLFW event handling
-///                 _ => (),
-///             };
-///
-///             // Move GLFW events as an input into EguiIOHandler
-///             egui_io.handle_event(event);
-///         }
-///
-///     // Begin egui frame
-///     egui_ctx.begin_frame(egui_io.take_raw_input());
-///
-///     // Update egui I/O handler
-///     egui_io.update(&window, clock.elapsed().as_secs_f64());
-///
-///     // Do egui stuff (e.g. display an egui window with a button)
-///     // ...
-///
-///     // End egui frame
-///     let egui::FullOutput {
-///             platform_output,
-///             repaint_after: _,
-///             textures_delta,
-///             shapes,
-///         } = egui_ctx.end_frame();
-///
-///     // Handle platform output
-///     egui_io.handle_platform_output(platform_output, &mut window);
-///
-///     // Render OpenGL stuff
-///     // ..
-/// }
-/// ```
 pub struct EguiIOHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
