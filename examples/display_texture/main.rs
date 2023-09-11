@@ -48,7 +48,6 @@ fn init_glfw_window(glfw: &mut Glfw) -> (glfw::Window, Receiver<(f64, WindowEven
 }
 
 fn main() {
-    // TO DO: callback for errors
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
     let (mut window, events) = init_glfw_window(&mut glfw);
 

@@ -15,7 +15,7 @@
 //!         .expect("Failed to create the GLFW window");
 //! // ...
 //! let mut egui_ctx = egui::Context::default();
-//! // ..
+//! // ...
 //! // Initialize egui integration
 //! let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
 //! let mut egui_painter = hamster_gfx::egui_integration::EguiPainter::new(&window);
@@ -38,7 +38,7 @@
 //!     // Begin egui frame
 //!     egui_ctx.begin_frame(egui_io.take_raw_input());
 //!
-//!     // Update egui I/O handler
+//!     // Update egui integration
 //!     egui_io.update(&window, clock.elapsed().as_secs_f64());
 //!     egui_painter.update(&window);
 //!
@@ -112,7 +112,7 @@ pub struct EguiPainter {
 }
 
 impl EguiPainter {
-    /// Creates a new instance of EguiPainter
+    /// Creates a new instance of EguiPainter.
     pub fn new(glfw_window: &glfw::Window) -> EguiPainter {
         let vs = Shader::compile_from_path(&Path::new("resources/egui_shaders/vertex.vert"), gl::VERTEX_SHADER)
             .expect("Painter couldn't load the vertex egui_shader");
@@ -154,7 +154,7 @@ impl EguiPainter {
         result
     }
 
-    /// Updates screen rectangle and native pixels per point
+    /// Updates screen rectangle and native pixels per point.
     pub fn update(&mut self, glfw_window: &glfw::Window) {
         (self.canvas_width, self.canvas_height) = glfw_window.get_framebuffer_size();
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
@@ -404,7 +404,59 @@ impl EguiPainter {
     }
 }
 
-/// Allows creating egui textures
+/// Allows creating egui textures and passing them to [`egui::Image::new()`].
+/// [`EguiUserTexture`] **cannot outlive** [`EguiPainter`] instance.
+/// ## SRGB format
+/// Egui uses textures stored in SRGB format, so everytime an egui texture
+/// is in use, [`EguiPainter`] sets [`gl::FRAMEBUFFER_SRGB`] flag before the draw call.
+/// For that reason [`EguiPainter`]
+/// needs to know if your texture is in srgb format as well, if it is not `srgb` flag
+/// must be set to `false`.
+/// ## Example
+/// ```rust
+/// use hamster_gfx::egui_integration::{EguiUserTexture, EguiPainter, EguiIOHandler};
+/// // ...
+/// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+/// // Create GLFW window
+/// let (mut window, events) = glfw
+///     .create_window(
+///         SCREEN_WIDTH,
+///         SCREEN_HEIGHT,
+///         "Window",
+///         glfw::WindowMode::Windowed,
+///     )
+///     .expect("Failed to create the GLFW window");
+/// // ...
+/// let egui_ctx = egui::Context::default();
+/// let mut egui_painter = EguiPainter::new(&window);
+/// let mut egui_io = EguiIOHandler::new(&window);
+/// // ...
+/// // Load the texture
+/// let mut egui_txt = EguiUserTexture::from_image_path(
+///     &mut egui_painter,
+///     &std::path::Path::new("path/to/your/image.png"),
+///     false,
+/// );
+/// // ...
+/// while !window.should_close() {
+///     // ...
+///     egui_ctx.begin_frame(egui_io.take_raw_input());
+///
+///     egui::Window::new("Egui window").show(&egui_ctx, |ui| {
+///         // Display Image with the texture
+///         ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
+///     });
+///
+///     let egui::FullOutput {
+///         platform_output,
+///         repaint_after: _,
+///         textures_delta,
+///         shapes,
+///     } = egui_ctx.end_frame();
+///     // ...
+/// }
+/// ```
+///
 pub struct EguiUserTexture {
     egui_txt_id: TextureId,
     textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
@@ -413,7 +465,8 @@ pub struct EguiUserTexture {
 }
 
 impl EguiUserTexture {
-    /// EguiUserTexture cannot outlive painter
+    /// Creates a new OpenGL texture and passes `data` to it's buffer. Returns
+    /// new instance of an EguiUserTexture.
     pub fn new(
         painter: &mut EguiPainter,
         filtering: TextureFilter,
@@ -458,6 +511,7 @@ impl EguiUserTexture {
         }
     }
 
+    /// Takes ownership of the `gl_texture` and creates a new instance of an EguiUserTexture.
     pub fn from_gl_texture(painter: &mut EguiPainter, gl_texture: Texture, srgb: bool) -> Result<EguiUserTexture, String> {
         let (width, height) = match gl_texture.get_size() {
             Some(s) => (s.0, s.1),
@@ -475,20 +529,25 @@ impl EguiUserTexture {
         })
     }
 
+    /// Creates a new OpenGL texture and passes 2D image specified by the `path` to it's buffer.
+    /// Returns a new instance of an EguiUserTexture.
     pub fn from_image_path(painter: &mut EguiPainter, path: &Path, srgb: bool) -> Result<EguiUserTexture, String> {
         let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
         gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
         Self::from_gl_texture(painter, gl_texture, srgb)
     }
 
+    /// Returns copy of the egui texture id.
     pub fn get_id(&self) -> TextureId {
         self.egui_txt_id
     }
 
+    /// Returns texture size as [`egui::Vec2`].
     pub fn get_size(&self) -> Vec2 {
         vec2(self.width as f32, self.height as f32)
     }
 
+    /// Updates OpenGL buffer (calls [`gl::TexSubImage2D()`]), with the given data.
     pub fn update(&self, data: &[Color32]) {
         assert_eq!(
             self.width * self.height,
@@ -571,8 +630,8 @@ impl EguiCursorManager {
     }
 }
 
-/// This structure allows translation of glfw events into egui events (input)
-/// and egui platform output handling (output).
+/// This structure allows translation of glfw events into egui events (input handling)
+/// and egui platform output handling (output handling).
 pub struct EguiIOHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
