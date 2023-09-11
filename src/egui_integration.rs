@@ -341,8 +341,6 @@ pub struct EguiUserTexture {
 }
 
 impl EguiUserTexture {
-    // TODO: make it lazy
-
     /// EguiUserTexture cannot outlive painter
     pub fn new(
         painter: &mut EguiPainter,
@@ -459,9 +457,9 @@ impl EguiCursorManager {
         let st_cursor = Self::translate_eguicursor_to_glfwcursor(cursor_icon);
 
         if let Some(c) = self.last_cursor {
-           if c == st_cursor {
-               return;
-           }
+            if c == st_cursor {
+                return;
+            }
         }
 
         glfw_window.set_cursor(Some(Cursor::standard(st_cursor)));
@@ -494,7 +492,59 @@ impl EguiCursorManager {
     }
 }
 
-// from: https://github.com/cohaereo/egui_glfw_gl
+/// ```rust
+/// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+/// // ...
+/// let (mut window, events) = glfw
+///  .create_window(
+///             SCREEN_WIDTH,
+///             SCREEN_HEIGHT,
+///             "Window",
+///             glfw::WindowMode::Windowed,
+///         )
+///         .expect("Failed to create the GLFW window");
+/// let mut egui_ctx = egui::Context::default();
+/// let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
+/// // ...
+/// let mut clock = std::time::Instant::now();
+/// while !window.should_close() {
+///     for (_, event) in glfw::flush_messages(&events) {
+///         if event == glfw::WindowEvent::Close {
+///             window.set_should_close(true);
+///         } else {
+///             match event {
+///                 // GLFW event handling
+///                 _ => (),
+///             };
+///
+///             // Move GLFW events as an input into EguiIOHandler
+///             egui_io.handle_event(event);
+///         }
+///
+///     // Begin egui frame
+///     egui_ctx.begin_frame(egui_io.take_raw_input());
+///
+///     // Update egui I/O handler
+///     egui_io.update(&window, clock.elapsed().as_secs_f64());
+///
+///     // Do egui stuff (e.g. display an egui window with a button)
+///     // ...
+///
+///     // End egui frame
+///     let egui::FullOutput {
+///             platform_output,
+///             repaint_after: _,
+///             textures_delta,
+///             shapes,
+///         } = egui_ctx.end_frame();
+///
+///     // Handle platform output
+///     egui_io.handle_platform_output(platform_output, &mut window);
+///
+///     // Render OpenGL stuff
+///     // ..
+/// }
+/// ```
 pub struct EguiIOHandler {
     pointer_pos: Pos2,
     clipboard: Option<ClipboardContext>,
@@ -504,6 +554,7 @@ pub struct EguiIOHandler {
 }
 
 impl EguiIOHandler {
+    /// Creates a new instance of an EguiIOHandler.
     pub fn new(glfw_window: &glfw::Window) -> EguiIOHandler {
         let (width, height) = glfw_window.get_framebuffer_size();
         EguiIOHandler {
@@ -521,6 +572,7 @@ impl EguiIOHandler {
         }
     }
 
+    /// Translates glfw events into egui events and pushes them onto egui event queue.
     pub fn handle_event(&mut self, event: glfw::WindowEvent) {
         use glfw::WindowEvent::*;
 
@@ -583,7 +635,6 @@ impl EguiIOHandler {
                         // TODO: GLFW doesn't seem to support the mac command key
                         //       mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
                         command: (keymod & Mod::Control == Mod::Control),
-
                         ..Default::default()
                     };
 
@@ -607,7 +658,6 @@ impl EguiIOHandler {
                         // TODO: GLFW doesn't seem to support the mac command key
                         //       mac_cmd: keymod & Mod::LGUIMOD == Mod::LGUIMOD,
                         command: (keymod & Mod::Control == Mod::Control),
-
                         ..Default::default()
                     };
 
@@ -649,14 +699,16 @@ impl EguiIOHandler {
         }
     }
 
+    /// Handles egui platform output, that is returned every frame by [`egui::Context::end_frame()`] and [`egui::Context::run()`] functions.
+    /// Mutable window borrow is required, since this function may change cursor image.
     pub fn handle_platform_output(&mut self, platform_output: PlatformOutput, glfw_window: &mut glfw::Window) {
         if !platform_output.copied_text.is_empty() {
             self.copy_to_clipboard(platform_output.copied_text);
         }
         self.cursor_manager.set_cursor(platform_output.cursor_icon, glfw_window);
-
     }
 
+    /// Updates screen rectangle, native pixels per point and elapsed time.
     pub fn update(&mut self, glfw_window: &glfw::Window, elapsed_time_as_secs: f64) {
         let (width, height) = glfw_window.get_framebuffer_size();
         let native_pixels_per_point = glfw_window.get_content_scale().0;
@@ -669,19 +721,13 @@ impl EguiIOHandler {
         self.input.pixels_per_point = Some(native_pixels_per_point);
     }
 
-    pub fn copy_to_clipboard(&mut self, copy_text: String) {
-        if let Some(clipboard) = self.clipboard.as_mut() {
-            let result = clipboard.set_contents(copy_text);
-            if result.is_err() {
-                dbg!("Unable to set clipboard content.");
-            }
-        }
-    }
-
+    /// Returns [`egui::RawInput`] that should be moved into [`egui::Context::run()`] or
+    /// [`egui::Context::begin_frame()`] function.
     pub fn take_raw_input(&mut self) -> RawInput {
         self.input.take()
     }
 
+    // Creates cli-clipboard context.
     fn init_clipboard() -> Option<ClipboardContext> {
         match ClipboardContext::new() {
             Ok(clipboard) => Some(clipboard),
@@ -692,7 +738,19 @@ impl EguiIOHandler {
         }
     }
 
+    // Uses cli-clipboard library in order to put copied text into the system clipboard.
+    fn copy_to_clipboard(&mut self, copy_text: String) {
+        if let Some(clipboard) = self.clipboard.as_mut() {
+            let result = clipboard.set_contents(copy_text);
+            if result.is_err() {
+                dbg!("Unable to set clipboard content.");
+            }
+        }
+    }
+
+    // Translates glfw key codes into egui key codes.
     fn translate_glfwkey_to_eguikey(key: glfw::Key) -> Option<egui::Key> {
+        // From: https://github.com/cohaereo/egui_glfw_gl
         use glfw::Key::*;
 
         Some(match key {
@@ -700,14 +758,11 @@ impl EguiIOHandler {
             Up => Key::ArrowUp,
             Right => Key::ArrowRight,
             Down => Key::ArrowDown,
-
             Escape => Key::Escape,
             Tab => Key::Tab,
             Backspace => Key::Backspace,
             Space => Key::Space,
-
             Enter => Key::Enter,
-
             Insert => Key::Insert,
             Home => Key::Home,
             Delete => Key::Delete,
@@ -741,7 +796,6 @@ impl EguiIOHandler {
             X => Key::X,
             Y => Key::Y,
             Z => Key::Z,
-
             _ => {
                 return None;
             }
