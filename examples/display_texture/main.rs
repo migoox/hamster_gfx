@@ -1,8 +1,9 @@
-use glfw::Context;
+use glfw::{Context, Glfw, WindowEvent};
 use std::time::Instant;
 use core::default::Default;
 use std::mem::size_of_val;
 use std::path::Path;
+use std::sync::mpsc::Receiver;
 use egui::Color32;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
@@ -14,10 +15,7 @@ const SCREEN_HEIGHT: u32 = 1200;
 const SIN_PIC_WIDTH: usize = 200;
 const SIN_PIC_HEIGHT: usize = 200;
 
-fn main() {
-    // TO DO: callback for errors
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-
+fn init_glfw_window(glfw: &mut Glfw) -> (glfw::Window, Receiver<(f64, WindowEvent)>) {
     // Set window hints
     glfw.window_hint(glfw::WindowHint::Resizable(true));
 
@@ -43,10 +41,18 @@ fn main() {
     window.set_mouse_button_polling(true);
     // Make context of the window current (attach it to the current thread)
     window.make_current();
-
-    // Turn on VSync (window_refresh_interval:screen_refresh_interval - 1:1)
+    // Turn on VSync (window_refresh_interval:screen_refresh_interval == 1:1)
     glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
 
+    (window, events)
+}
+
+fn main() {
+    // TO DO: callback for errors
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let (mut window, events) = init_glfw_window(&mut glfw);
+
+    // Prepare OpenGL context
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
     // EGUI INTEGRATION
@@ -54,28 +60,28 @@ fn main() {
     let mut egui_painter = egui_integration::EguiPainter::new(&window);
     let mut egui_io = egui_integration::EguiIOHandler::new(&window);
 
-    // Egui Textures examples
+    // Egui Textures example 1
     let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
     gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
     let egui_txt = EguiUserTexture::from_gl_texture(&mut egui_painter, gl_texture, false).unwrap();
 
+    // Egui Textures example 2
+    let mut sin_data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
     let egui_sin_txt = EguiUserTexture::new(
         &mut egui_painter,
         egui::TextureFilter::Linear,
         SIN_PIC_WIDTH,
         SIN_PIC_HEIGHT,
         false,
-        &vec![Color32::from_rgb(15, 15, 15); SIN_PIC_WIDTH * SIN_PIC_HEIGHT],
+        &sin_data,
     );
-
-    let mut sin_data: Vec<Color32> = vec![Color32::BLACK; SIN_PIC_HEIGHT * SIN_PIC_WIDTH];
 
     let mut sine_shift = 0f32;
     let mut amplitude = 50f32;
     let mut test_str =
-        "A text box to write in. Cut, copy, paste commands are available.".to_owned();
+        "A text box to write in. Cut, copy, paste commands are available.".to_string();
 
-    // OPENGL WRAPPER TEST
+    // OPENGL WRAPPER
     use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
     use hamster_gfx::renderer::Bindable;
     let vs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.vert"), gl::VERTEX_SHADER).unwrap();
@@ -128,15 +134,17 @@ fn main() {
     let mut texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
     texture.tex_image2d_from_path(&Path::new("resources/images/hamster.png")).unwrap();
 
+    // Send texture unit value to the texture sampler
     program.activate_sampler("u_texture", 3).unwrap();
 
+    // Start a clock
     let mut clock = Instant::now();
 
     while !window.should_close() {
         // UPDATE INPUT
         for (_, event) in glfw::flush_messages(&events) {
             if event == glfw::WindowEvent::Close {
-                window.should_close();
+                window.set_should_close(true);
             } else {
                 match event {
                     // Custom event handling
@@ -148,24 +156,20 @@ fn main() {
             }
         }
 
-        {
-            // SINUS TEXTURE UPDATE
-
-            for x in 0..SIN_PIC_WIDTH {
-                for y in 0..SIN_PIC_HEIGHT {
-                    sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::BLACK;
-                }
-                // get y position for x
-                let y = amplitude * ((x as f32) * std::f32::consts::PI / 180f32 + sine_shift).sin();
-                let y = SIN_PIC_HEIGHT as f32 / 2f32 - y;
-                sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
+        // SINUS TEXTURE UPDATE
+        for x in 0..SIN_PIC_WIDTH {
+            for y in 0..SIN_PIC_HEIGHT {
+                sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::BLACK;
             }
-
-            // update sinus shift so that it "moves" in each frame
-            sine_shift += 0.05f32;
-
-            egui_sin_txt.update(&sin_data);
+            // get y position for x
+            let y = amplitude * ((x as f32) * std::f32::consts::PI / 180f32 + sine_shift).sin();
+            let y = SIN_PIC_HEIGHT as f32 / 2f32 - y;
+            sin_data[(y as i32 * (SIN_PIC_WIDTH as i32) + (x as i32)) as usize] = Color32::YELLOW;
         }
+
+        // update sinus shift so that it "moves" in each frame
+        sine_shift += 0.05f32;
+        egui_sin_txt.update(&sin_data);
 
         // START AN EGUI FRAME (it should happen before egui integration update)
         egui_ctx.begin_frame(egui_io.take_raw_input());
@@ -211,7 +215,7 @@ fn main() {
 
         // RENDER
         unsafe {
-            gl::ClearColor(0.0, 1.0, 0.0, 1.0);
+            gl::ClearColor(0.0, 0.8, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
