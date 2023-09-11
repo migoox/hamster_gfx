@@ -218,7 +218,7 @@ impl EguiPainter {
         }
     }
 
-    pub fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
+    fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
         debug_assert!(mesh.is_valid());
 
         // BeginFrom: https://github.com/emilk/egui/blob/master/crates/egui_glium/src/painter.rs
@@ -403,6 +403,12 @@ impl EguiUserTexture {
         })
     }
 
+    pub fn from_image_path(painter: &mut EguiPainter, path: &Path, srgb: bool) -> Result<EguiUserTexture, String> {
+        let mut gl_texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);
+        gl_texture.tex_image2d_from_path_no_flip(&Path::new("resources/images/hamster2.png")).unwrap();
+        Self::from_gl_texture(painter, gl_texture, srgb)
+    }
+
     pub fn get_id(&self) -> TextureId {
         self.egui_txt_id
     }
@@ -453,6 +459,7 @@ impl EguiCursorManager {
         }
     }
 
+    // Changes the current cursor
     pub fn set_cursor(&mut self, cursor_icon: egui::CursorIcon, glfw_window: &mut glfw::Window) {
         let st_cursor = Self::translate_eguicursor_to_glfwcursor(cursor_icon);
 
@@ -492,6 +499,8 @@ impl EguiCursorManager {
     }
 }
 
+/// This structure allows translation of glfw events into egui events (input)
+/// and egui platform output handling (output).
 /// ```rust
 /// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 /// // ...
@@ -503,6 +512,7 @@ impl EguiCursorManager {
 ///             glfw::WindowMode::Windowed,
 ///         )
 ///         .expect("Failed to create the GLFW window");
+/// // ...
 /// let mut egui_ctx = egui::Context::default();
 /// let mut egui_io = hamster_gfx::egui_integration::EguiIOHandler::new(&window);
 /// // ...
