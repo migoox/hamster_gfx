@@ -7,8 +7,8 @@
 //! // ...
 //! let (mut window, events) = glfw
 //!  .create_window(
-//!             SCREEN_WIDTH,
-//!             SCREEN_HEIGHT,
+//!             800,
+//!             600,
 //!             "Window",
 //!             glfw::WindowMode::Windowed,
 //!         )
@@ -76,7 +76,7 @@ use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
 use glfw::Cursor;
 use image::EncodableLayout;
-use crate::renderer::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
+use crate::renderer::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
 
 struct TextureData {
     texture: Texture,
@@ -420,8 +420,8 @@ impl EguiPainter {
 /// // Create GLFW window
 /// let (mut window, events) = glfw
 ///     .create_window(
-///         SCREEN_WIDTH,
-///         SCREEN_HEIGHT,
+///         800,
+///         600,
 ///         "Window",
 ///         glfw::WindowMode::Windowed,
 ///     )

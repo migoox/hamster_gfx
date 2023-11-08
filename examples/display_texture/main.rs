@@ -7,7 +7,7 @@ use std::sync::mpsc::Receiver;
 use egui::Color32;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
-use hamster_gfx::renderer::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
+use hamster_gfx::renderer::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
 
 const SCREEN_WIDTH: u32 = 1600;
 const SCREEN_HEIGHT: u32 = 1200;
@@ -81,8 +81,8 @@ fn main() {
         "A text box to write in. Cut, copy, paste commands are available.".to_string();
 
     // OPENGL WRAPPER
-    use hamster_gfx::renderer::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
-    use hamster_gfx::renderer::Bindable;
+    use hamster_gfx::renderer::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
+    use hamster_gfx::renderer::gl_wrapper::Bindable;
     let vs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.vert"), gl::VERTEX_SHADER).unwrap();
     let fs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.frag"), gl::FRAGMENT_SHADER).unwrap();
     let program = ShaderProgram::link(&vs, &fs);
