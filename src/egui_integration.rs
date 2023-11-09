@@ -168,6 +168,34 @@ impl EguiPainter {
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
 
+    pub fn set_egui_scale(&self, ctx: &Context, scale: f32) {
+        let mut style = (*ctx.style()).clone();
+        style.text_styles = [
+            (
+                TextStyle::Heading,
+                FontId::new(scale * 30.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Body,
+                FontId::new(scale * 22.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Monospace,
+                FontId::new(scale * 18.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Button,
+                FontId::new(scale * 18.0, FontFamily::Proportional),
+            ),
+            (
+                TextStyle::Small,
+                FontId::new(scale * 14.0, FontFamily::Proportional),
+            ),
+        ]
+            .into();
+        ctx.set_style(style);
+    }
+
     /// Paints and updates egui textures.
     pub fn paint(&mut self, clipped_primitives: &Vec<ClippedPrimitive>, texture_delta: &TexturesDelta) {
         // Update textures if they are already uploaded to the OpenGL or upload them
