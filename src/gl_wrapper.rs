@@ -1088,6 +1088,9 @@ pub struct RenderSettings {
     // Viewport
     pub viewport: Rect<GLint>,
 
+    // Scissor
+    pub scissor: Rect<GLint>,
+
     // Depth buffer
     pub depth_buffer: bool,
 
@@ -1111,6 +1114,13 @@ impl Default for RenderSettings {
             blend_func_destination_factor: gl::ONE_MINUS_SRC_ALPHA,
 
             viewport: Rect {
+                x: viewport[0],
+                y: viewport[1],
+                width: viewport[2],
+                height: viewport[3],
+            },
+
+            scissor: Rect {
                 x: viewport[0],
                 y: viewport[1],
                 width: viewport[2],
@@ -1158,7 +1168,13 @@ impl RenderSettings {
                     self.viewport.y,
                     self.viewport.width,
                     self.viewport.height,
-                )
+                );
+                gl::Scissor(
+                    self.scissor.x,
+                    self.scissor.y,
+                    self.scissor.width,
+                    self.scissor.height,
+                );
             }
         }
     }
@@ -1171,7 +1187,8 @@ impl RenderSettings {
             blend: self.blend || other.blend,
             blend_func_source_factor: self.blend_func_source_factor,
             blend_func_destination_factor: self.blend_func_destination_factor,
-            scissor_test: self.scissor_test || other.scissor_test
+            scissor_test: self.scissor_test || other.scissor_test,
+            scissor: self.scissor.clone(),
         }
     }
 }
@@ -1227,8 +1244,17 @@ impl RenderTarget {
             width,
             height
         }
+
     }
 
+    pub fn set_scissor(&mut self, x: GLint, y: GLint, width: GLint, height: GLint) {
+        self.settings.scissor = Rect {
+            x,
+            y,
+            width,
+            height
+        }
+    }
     pub fn draw(&self, drawable_obj: &dyn Drawable, program: &ShaderProgram) {
         self.fb.bind();
 

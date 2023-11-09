@@ -7,7 +7,7 @@ use std::sync::mpsc::Receiver;
 use egui::Color32;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
-use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, FrameBuffer, VertexArray, Texture, RenderTarget, Color};
+use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, FrameBuffer, VertexArray, Texture, RenderTarget, Color, RenderSettings};
 
 const SCREEN_WIDTH: u32 = 1280;
 const SCREEN_HEIGHT: u32 = 760;
@@ -137,7 +137,11 @@ fn main() {
     let mut clock = Instant::now();
 
     // Create a render target
-    let render_target = RenderTarget::new();
+    let render_target = RenderTarget::build(RenderSettings {
+        scissor_test: true,
+        blend:true,
+        ..Default::default()
+    });
 
     while !window.should_close() {
         // UPDATE INPUT

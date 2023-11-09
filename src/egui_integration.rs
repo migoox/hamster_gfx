@@ -203,6 +203,7 @@ impl EguiPainter {
 
         // Prepare OpenGL
         self.render_target.set_viewport(0,0, self.canvas_width, self.canvas_height);
+        self.render_target.set_scissor(0,0, self.canvas_width, self.canvas_height);
 
         // Prepare Uniforms
         self.shader_program.set_uniform2f(
