@@ -230,5 +230,6 @@ fn main() {
 
         window.swap_buffers();
         glfw.poll_events();
+
     }
 }

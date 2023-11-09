@@ -67,7 +67,6 @@
 //! }
 //! ```
 use std::path::Path;
-use core::default::Default;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -76,7 +75,7 @@ use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
 use glfw::Cursor;
 use image::EncodableLayout;
-use crate::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
+use crate::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture, RenderTarget, RenderSettings};
 
 struct TextureData {
     texture: Texture,
@@ -103,6 +102,8 @@ pub struct EguiPainter {
     vbo_col: Buffer,
     vbo_tex: Buffer,
     ebo: Buffer,
+
+    render_target: RenderTarget,
 
     textures: Rc<RefCell<HashMap<TextureId, TextureData>>>,
 
@@ -146,6 +147,13 @@ impl EguiPainter {
             vbo_tex,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
             textures: Rc::new(RefCell::new(HashMap::new())),
+            render_target: RenderTarget::build(RenderSettings {
+                scissor_test: true,
+                blend: true,
+                blend_func_source_factor: gl::ONE,
+                blend_func_destination_factor: gl::ONE_MINUS_SRC_ALPHA,
+                ..Default::default()
+            }),
             canvas_width: 0,
             canvas_height: 0,
             native_pixels_per_point: 1.0,
@@ -166,14 +174,7 @@ impl EguiPainter {
         self.update_textures(texture_delta);
 
         // Prepare OpenGL
-        unsafe {
-            gl::Enable(gl::SCISSOR_TEST);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA); // premultiplied alpha
-
-            // Specify viewport
-            gl::Viewport(0, 0, self.canvas_width, self.canvas_height);
-        }
+        self.render_target.set_viewport(0,0, self.canvas_width, self.canvas_height);
 
         // Prepare Uniforms
         self.shader_program.set_uniform2f(
@@ -198,12 +199,6 @@ impl EguiPainter {
                     panic!("Custom rendering callbacks are not implemented");
                 }
             }
-        }
-
-        // Clean OpenGL state
-        unsafe {
-            gl::Disable(gl::SCISSOR_TEST);
-            gl::Disable(gl::BLEND);
         }
     }
 
@@ -382,25 +377,15 @@ impl EguiPainter {
         self.vao.use_vbo(&self.vbo_tex);
         self.vao.use_ebo(&self.ebo);
 
-        unsafe {
-            if srgb {
-                // Let OpenGL know we are dealing with SRGB colors so that it
-                // can do the blending correctly. Not setting the framebuffer
-                // leads to darkened, over-saturated colors.
-                gl::Enable(gl::FRAMEBUFFER_SRGB);
+        self.render_target.draw_elements_with_settings(
+            gl::TRIANGLES,
+            mesh.indices.len() as _,
+            &self.shader_program,
+            RenderSettings {
+                framebuffer_srgb: srgb,
+                ..Default::default()
             }
-
-            gl::DrawElements(
-                gl::TRIANGLES,
-                mesh.indices.len() as _,
-                gl::UNSIGNED_INT,
-                core::ptr::null(),
-            );
-
-            if srgb {
-                gl::Disable(gl::FRAMEBUFFER_SRGB);
-            }
-        }
+        )
     }
 }
 

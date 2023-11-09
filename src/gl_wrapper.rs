@@ -1032,6 +1032,7 @@ impl Drop for FrameBuffer {
         }
     }
 }
+
 enum Primitives {
     // TODO
 }
@@ -1133,7 +1134,6 @@ impl RenderSettings {
                 gl::Disable(for_what);
             }
         }
-
     }
 
     fn set(&self) {
@@ -1148,6 +1148,15 @@ impl RenderSettings {
             Self::set_flag(self.depth_buffer, gl::DEPTH_TEST);
             Self::set_flag(self.framebuffer_srgb, gl::FRAMEBUFFER_SRGB);
             Self::set_flag(self.scissor_test, gl::SCISSOR_TEST);
+
+            unsafe {
+                gl::Viewport(
+                    self.viewport.x,
+                    self.viewport.y,
+                    self.viewport.width,
+                    self.viewport.height,
+                )
+            }
         }
     }
 
@@ -1162,8 +1171,6 @@ impl RenderSettings {
             scissor_test: self.scissor_test || other.scissor_test
         }
     }
-
-
 }
 
 pub struct RenderTarget {
@@ -1196,6 +1203,7 @@ impl RenderTarget {
     pub fn clear(&self, color: Color) {
         self.fb.bind();
 
+        self.settings.set();
         unsafe {
             gl::ClearColor(color.r, color.g, color.b, color.a);
             gl::Clear(gl::COLOR_BUFFER_BIT);
