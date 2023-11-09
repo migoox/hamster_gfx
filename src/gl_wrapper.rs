@@ -920,12 +920,15 @@ impl VertexArray {
     /// used before rendering the VAO.
     pub fn use_vbo(&self, vbo: &Buffer) {
         self.bind();
+        let info = self.vbo_info.get(&vbo.id)
+            .expect("Vertex Array Object can't use not attached Vertex Buffer if it's not attached.");
+
         unsafe {
             gl::BindVertexBuffer(
-                self.vbo_info.get(&vbo.id).unwrap().2,
+                info.2,
                 vbo.id,
-                self.vbo_info.get(&vbo.id).unwrap().1,
-                self.vbo_info.get(&vbo.id).unwrap().0,
+                info.1,
+                info.0,
             );
             #[cfg(feature = "gl_debug")]
             check_opengl_errors();
