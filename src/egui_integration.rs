@@ -76,7 +76,7 @@ use egui::*;
 use gl::types::{GLint, GLsizei, GLvoid};
 use glfw::Cursor;
 use image::EncodableLayout;
-use crate::renderer::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
+use crate::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexArray, Bindable, VertexBufferLayout, VertexAttrib, Texture};
 
 struct TextureData {
     texture: Texture,
@@ -290,7 +290,7 @@ impl EguiPainter {
         }
     }
 
-    fn paint_mesh(&self, mesh: &Mesh, clip_rect: &Rect) {
+    fn paint_mesh(&mut self, mesh: &Mesh, clip_rect: &Rect) {
         debug_assert!(mesh.is_valid());
 
         // BeginFrom: https://github.com/emilk/egui/blob/master/crates/egui_glium/src/painter.rs

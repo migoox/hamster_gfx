@@ -7,11 +7,10 @@ use std::sync::mpsc::Receiver;
 use egui::Color32;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
-use hamster_gfx::renderer::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable};
+use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, FrameBuffer, VertexArray, Texture, RenderTarget, Color};
 
-const SCREEN_WIDTH: u32 = 1600;
-const SCREEN_HEIGHT: u32 = 1200;
-
+const SCREEN_WIDTH: u32 = 1280;
+const SCREEN_HEIGHT: u32 = 760;
 const SIN_PIC_WIDTH: usize = 200;
 const SIN_PIC_HEIGHT: usize = 200;
 
@@ -81,8 +80,6 @@ fn main() {
         "A text box to write in. Cut, copy, paste commands are available.".to_string();
 
     // OPENGL WRAPPER
-    use hamster_gfx::renderer::gl_wrapper::{Shader, ShaderProgram, Buffer, VertexBufferLayout, VertexAttrib, VertexArray, Texture};
-    use hamster_gfx::renderer::gl_wrapper::Bindable;
     let vs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.vert"), gl::VERTEX_SHADER).unwrap();
     let fs = Shader::compile_from_path(&Path::new("resources/examples_shaders/shader.frag"), gl::FRAGMENT_SHADER).unwrap();
     let program = ShaderProgram::link(&vs, &fs);
@@ -90,7 +87,7 @@ fn main() {
     let mut vao = VertexArray::new();
     let mut vbo_pos = Buffer::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW);
     let mut vbo_tex = Buffer::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
-    let ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
+    let mut ebo = Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
 
     // Initialize vertex buffers
     let vbo_buff: [f32; 8] = [
@@ -123,7 +120,7 @@ fn main() {
     vao.attach_vbo(&vbo_tex, &vbl, 0).unwrap();
 
     // Initialize element buffer
-    let ebo_buff: [u32; 6] = [
+    let mut ebo_buff: [u32; 6] = [
         0, 1, 3,
         1, 2, 3
     ];
@@ -138,6 +135,9 @@ fn main() {
 
     // Start a clock
     let mut clock = Instant::now();
+
+    // Create a render target
+    let render_target = RenderTarget::new();
 
     while !window.should_close() {
         // UPDATE INPUT
@@ -213,10 +213,7 @@ fn main() {
         egui_io.handle_platform_output(platform_output, &mut window);
 
         // RENDER
-        unsafe {
-            gl::ClearColor(0.0, 0.8, 1.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
+        render_target.clear(Color::rgb(0.2, 0.8, 1.0));
 
         // Draw a rectangle
         vao.bind();
@@ -226,9 +223,7 @@ fn main() {
         vao.use_vbo(&vbo_tex);
         vao.use_ebo(&ebo);
 
-        unsafe {
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, core::ptr::null());
-        }
+        render_target.draw_elements(gl::TRIANGLES, 6, &program);
 
         // Draw egui content using egui_painter
         egui_painter.paint(&egui_ctx.tessellate(shapes), &textures_delta);

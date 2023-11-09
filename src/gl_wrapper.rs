@@ -737,6 +737,8 @@ pub struct Buffer {
     id: GLuint,
     target: GLenum,
     usage: GLenum,
+
+    size: usize,
 }
 
 impl Buffer {
@@ -755,6 +757,7 @@ impl Buffer {
             id,
             target,
             usage,
+            size: 0,
         };
 
         result.bind();
@@ -770,6 +773,7 @@ impl Buffer {
         unsafe {
             gl::BufferData(target, size as GLsizeiptr, data, usage);
         }
+        result.size = size;
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
@@ -784,11 +788,12 @@ impl Buffer {
 
     /// Calls gl::BufferData. If a different VBO is currently binded, this function
     /// will bind `self`. Previous binding will not be restored!
-    pub fn buffer_data(&self, size: usize, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_data(&mut self, size: usize, data: *const c_void) -> Result<(), String> {
         self.bind();
         unsafe {
             gl::BufferData(self.target, size as _, data, self.usage);
         }
+        self.size = size;
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
@@ -798,11 +803,12 @@ impl Buffer {
 
     /// Calls gl::BufferSubData. If a different VBO is currently binded, this function
     /// will bind `self` and do it's work. Previous binding will not be restored!
-    pub fn buffer_sub_data(&self, size: usize, offset: u32, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_sub_data(&mut self, size: usize, offset: u32, data: *const c_void) -> Result<(), String> {
         self.bind();
         unsafe {
             gl::BufferSubData(self.target, offset as _, size as _, data);
         }
+        self.size = size;
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
@@ -810,6 +816,9 @@ impl Buffer {
         Ok(())
     }
 
+    pub fn get_size(&self) -> usize {
+        self.size
+    }
     // Define binder shared between instances of Buffer object
     fn binder() -> &'static Mutex<MultipleTargetBinder> {
         static BINDER: OnceLock<Mutex<MultipleTargetBinder>> = OnceLock::new();
@@ -959,6 +968,314 @@ impl Drop for VertexArray {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteVertexArrays(1, &self.id);
+        }
+    }
+}
+
+pub struct FrameBuffer {
+    id: GLuint,
+}
+
+impl FrameBuffer {
+    pub fn get_onscreen() -> FrameBuffer {
+        FrameBuffer {
+            id: 0,
+        }
+    }
+
+    pub fn new_offscreen() -> FrameBuffer {
+        let mut id = 0;
+        unsafe {
+            gl::GenFramebuffers(1, &mut id);
+        }
+        FrameBuffer {
+            id
+        }
+    }
+
+    pub fn is_completed(&self) -> bool {
+        self.bind();
+        unsafe {
+            return gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE;
+        }
+    }
+
+    // Binder shared between instances of the FrameBuffer structure
+    fn binder() -> &'static Mutex<Binder> {
+        static BINDER: OnceLock<Mutex<Binder>> = OnceLock::new();
+        BINDER.get_or_init(|| Mutex::new(Binder::new()))
+    }
+}
+
+impl Bindable for FrameBuffer {
+    fn bind(&self) -> bool {
+        Self::binder().lock().unwrap().bind(self.id, |i| {
+            unsafe {
+                gl::BindFramebuffer(gl::FRAMEBUFFER,i);
+            }
+        })
+    }
+
+    fn unbind(&self) -> bool {
+        Self::binder().lock().unwrap().unbind(|| {
+            unsafe {
+                gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            }
+        })
+    }
+}
+
+impl Drop for FrameBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteFramebuffers(1, &self.id);
+        }
+    }
+}
+enum Primitives {
+    // TODO
+}
+
+pub trait Drawable {
+    fn draw(&self);
+}
+
+#[derive(Clone)]
+pub struct Rect<T> {
+    pub x: T,
+    pub y: T,
+    pub width: T,
+    pub height: T,
+}
+
+pub struct Color {
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+}
+
+impl Color {
+    pub fn rgb(r: f32, g: f32, b: f32) -> Color {
+        Color {
+            r,
+            g,
+            b,
+            a: 1.0
+        }
+    }
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+        Color {
+            r,
+            g,
+            b,
+            a,
+        }
+    }
+}
+
+
+pub struct RenderSettings {
+    // Blending
+    pub blend: bool,
+    pub blend_func_source_factor: GLenum,
+    pub blend_func_destination_factor: GLenum,
+
+    // Viewport
+    pub viewport: Rect<GLint>,
+
+    // Depth buffer
+    pub depth_buffer: bool,
+
+    // SRGB Framebuffer
+    pub framebuffer_srgb: bool,
+
+    // Scissor test
+    pub scissor_test: bool,
+}
+
+impl Default for RenderSettings {
+    fn default() -> Self {
+        let mut viewport: [GLint; 4] = [0, 0, 0, 0];
+        unsafe {
+            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr())
+        }
+
+        RenderSettings {
+            blend: false,
+            blend_func_source_factor: gl::SRC_ALPHA,
+            blend_func_destination_factor: gl::ONE_MINUS_SRC_ALPHA,
+
+            viewport: Rect {
+                x: viewport[0],
+                y: viewport[1],
+                width: viewport[2],
+                height: viewport[3],
+            },
+
+            depth_buffer: false,
+
+            framebuffer_srgb: false,
+
+            scissor_test: false,
+        }
+    }
+}
+
+impl RenderSettings {
+    fn set_flag(flag: bool, for_what: GLenum) {
+        if flag {
+            unsafe {
+                gl::Enable(for_what);
+            }
+        } else {
+            unsafe {
+                gl::Disable(for_what);
+            }
+        }
+
+    }
+
+    fn set(&self) {
+        unsafe {
+            if self.blend {
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(self.blend_func_source_factor, self.blend_func_destination_factor);
+            } else {
+                gl::Disable(gl::BLEND);
+            }
+
+            Self::set_flag(self.depth_buffer, gl::DEPTH_TEST);
+            Self::set_flag(self.framebuffer_srgb, gl::FRAMEBUFFER_SRGB);
+            Self::set_flag(self.scissor_test, gl::SCISSOR_TEST);
+        }
+    }
+
+    pub fn sum(&self, other: &RenderSettings) -> RenderSettings {
+        RenderSettings {
+            depth_buffer: self.depth_buffer || other.depth_buffer,
+            framebuffer_srgb: self.framebuffer_srgb || other.framebuffer_srgb,
+            viewport: self.viewport.clone(),
+            blend: self.blend || other.blend,
+            blend_func_source_factor: self.blend_func_source_factor,
+            blend_func_destination_factor: self.blend_func_destination_factor,
+            scissor_test: self.scissor_test || other.scissor_test
+        }
+    }
+
+
+}
+
+pub struct RenderTarget {
+    fb: FrameBuffer,
+    settings: RenderSettings,
+}
+
+impl RenderTarget {
+    /// Creates new on screen render target.
+    pub fn new() -> RenderTarget {
+        RenderTarget {
+            fb: FrameBuffer::get_onscreen(),
+            settings: RenderSettings::default(),
+        }
+    }
+
+    pub fn build(settings: RenderSettings) -> RenderTarget {
+        RenderTarget {
+            fb: FrameBuffer::get_onscreen(),
+            settings,
+        }
+    }
+    pub fn new_offscreen() -> RenderTarget {
+        RenderTarget {
+            fb: FrameBuffer::new_offscreen(),
+            settings: RenderSettings::default(),
+        }
+    }
+
+    pub fn clear(&self, color: Color) {
+        self.fb.bind();
+
+        unsafe {
+            gl::ClearColor(color.r, color.g, color.b, color.a);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
+
+   pub fn set_blending_func(&mut self, source: GLenum, destination: GLenum) {
+        self.settings.blend_func_source_factor = source;
+        self.settings.blend_func_destination_factor = destination;
+    }
+
+    pub fn set_viewport(&mut self, x: GLint, y: GLint, width: GLint, height: GLint) {
+        self.settings.viewport = Rect {
+            x,
+            y,
+            width,
+            height
+        }
+    }
+
+    pub fn draw(&self, drawable_obj: &dyn Drawable, program: &ShaderProgram) {
+        self.fb.bind();
+
+        self.settings.set();
+        program.bind();
+        drawable_obj.draw();
+    }
+
+    pub fn draw_with_settings(&self, drawable_obj: &dyn Drawable, program: &ShaderProgram, settings: RenderSettings) {
+        self.fb.bind();
+
+        self.settings.sum(&settings).set();
+        program.bind();
+        drawable_obj.draw();
+    }
+    pub fn draw_arrays(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
+        self.fb.bind();
+
+        self.settings.set();
+        program.bind();
+        unsafe {
+            gl::DrawArrays(mode, 0, size);
+        }
+    }
+
+    pub fn draw_arrays_with_settings(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram, settings: RenderSettings) {
+        self.fb.bind();
+
+        self.settings.sum(&settings).set();
+        program.bind();
+        unsafe {
+            gl::DrawArrays(mode, 0, size);
+        }
+    }
+    pub fn draw_elements(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
+        self.fb.bind();
+
+        self.settings.set();
+        program.bind();
+        unsafe {
+            gl::DrawElements(
+                mode,
+                size,
+                gl::UNSIGNED_INT,
+                core::ptr::null()
+            );
+        }
+    }
+    pub fn draw_elements_with_settings(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram, settings: RenderSettings) {
+        self.fb.bind();
+
+        self.settings.sum(&settings).set();
+        program.bind();
+        unsafe {
+            gl::DrawElements(
+                mode,
+                size,
+                gl::UNSIGNED_INT,
+                core::ptr::null()
+            );
         }
     }
 }
