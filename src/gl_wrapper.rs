@@ -1193,7 +1193,9 @@ impl RenderTarget {
             settings,
         }
     }
+
     pub fn new_offscreen() -> RenderTarget {
+        todo!();
         RenderTarget {
             fb: FrameBuffer::new_offscreen(),
             settings: RenderSettings::default(),
@@ -1239,6 +1241,7 @@ impl RenderTarget {
         program.bind();
         drawable_obj.draw();
     }
+
     pub fn draw_arrays(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
         self.fb.bind();
 
@@ -1258,6 +1261,7 @@ impl RenderTarget {
             gl::DrawArrays(mode, 0, size);
         }
     }
+
     pub fn draw_elements(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
         self.fb.bind();
 
@@ -1272,6 +1276,7 @@ impl RenderTarget {
             );
         }
     }
+
     pub fn draw_elements_with_settings(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
