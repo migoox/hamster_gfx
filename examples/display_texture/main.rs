@@ -99,7 +99,7 @@ fn main() {
     vbo_pos.buffer_data::<f32>(
         vbo_buff.len(),
         vbo_buff.as_ptr()
-    ).unwrap();
+    );
 
     let vbo_buff: [f32; 8] = [
         1.0f32, 1.0f32,
@@ -110,7 +110,7 @@ fn main() {
     vbo_tex.buffer_data::<f32>(
         vbo_buff.len(),
         vbo_buff.as_ptr()
-    ).unwrap();
+    );
 
     // Create vertex buffer layout
     let mut vbl = VertexBufferLayout::new();
@@ -133,7 +133,7 @@ fn main() {
     ebo.buffer_data::<u32>(
         ebo_buff.len(),
         ebo_buff.as_ptr()
-    ).unwrap();
+    );
 
     // Create texture
     let mut texture = Texture::new(gl::TEXTURE_2D, gl::LINEAR, gl::CLAMP_TO_EDGE);

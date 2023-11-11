@@ -371,22 +371,22 @@ impl EguiPainter {
         self.ebo.buffer_data::<u32>(
             mesh.indices.len(),
             mesh.indices.as_ptr(),
-        ).unwrap();
+        );
 
         self.vbo_pos.buffer_data::<f32>(
             positions.len(),
             positions.as_ptr(),
-        ).unwrap();
+        );
 
         self.vbo_col.buffer_data::<u8>(
             colors.len(),
             colors.as_ptr(),
-        ).unwrap();
+        );
 
         self.vbo_tex.buffer_data::<f32>(
             tex_coords.len(),
             tex_coords.as_ptr(),
-        ).unwrap();
+        );
 
         // Bind texture associated with the mesh
         self.shader_program.bind();

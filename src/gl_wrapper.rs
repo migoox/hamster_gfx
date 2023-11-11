@@ -767,28 +767,14 @@ impl Buffer {
     /// Builds and binds OpenGL Buffer Object (uses gl::BufferData).
     pub fn build<T>(target: GLenum, usage: GLenum, size: usize, data: *const T) -> Buffer {
         let mut result = Self::new(target, usage);
-
-        result.bind();
-
-        unsafe {
-            gl::BufferData(
-                target,
-                (size * std::mem::size_of::<T>()) as GLsizeiptr,
-                data as *const c_void,
-                usage
-            );
-        }
-        result.size = size;
-
-        #[cfg(feature = "gl_debug")]
-        check_opengl_errors();
+        result.buffer_data::<T>(size, data);
 
         result
     }
 
     /// Calls gl::BufferData. If a different VBO is currently binded, this function
     /// will bind `self`. Previous binding will not be restored!
-    pub fn buffer_data<T>(&mut self, size: usize, data: *const T) -> Result<(), String> {
+    pub fn buffer_data<T>(&mut self, size: usize, data: *const T) {
         self.bind();
         unsafe {
             gl::BufferData(
@@ -802,13 +788,11 @@ impl Buffer {
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
-
-        Ok(())
     }
 
     /// Calls gl::BufferSubData. If a different VBO is currently binded, this function
     /// will bind `self` and do it's work. Previous binding will not be restored!
-    pub fn buffer_sub_data<T>(&mut self, size: usize, offset: usize, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_sub_data<T>(&mut self, size: usize, offset: usize, data: *const c_void) {
         self.bind();
         unsafe {
             gl::BufferSubData(
@@ -822,8 +806,6 @@ impl Buffer {
 
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
-
-        Ok(())
     }
 
     pub fn get_size(&self) -> usize {
