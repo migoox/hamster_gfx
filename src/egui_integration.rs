@@ -206,7 +206,7 @@ impl EguiPainter {
         self.render_target.set_scissor(0,0, self.canvas_width, self.canvas_height);
 
         // Prepare Uniforms
-        self.shader_program.set_uniform2f(
+        self.shader_program.set_uniform_2f(
             "u_screen_size",
             self.canvas_width as f32 / self.native_pixels_per_point,
             self.canvas_height as f32 / self.native_pixels_per_point,

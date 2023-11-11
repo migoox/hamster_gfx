@@ -266,12 +266,12 @@ impl ShaderProgram {
     /// This function calls set_uniform1i, which uses gl::ProgramUniform* command family, which means
     /// that there is no need to bind ShaderProgram, so this function won't bind anything.
     pub fn activate_sampler(&self, name: &str, unit: u32) -> Result<(), String> {
-        self.set_uniform1i(name, unit as i32);
+        self.set_uniform_1i(name, unit as i32);
         Ok(())
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform1ui(&self, name: &str, v0: u32) {
+    pub fn set_uniform_1ui(&self, name: &str, v0: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform1ui(
@@ -286,7 +286,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform2ui(&self, name: &str, v0: u32, v1: u32) {
+    pub fn set_uniform_2ui(&self, name: &str, v0: u32, v1: u32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform2ui(
@@ -302,7 +302,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform1i(&self, name: &str, v0: i32) {
+    pub fn set_uniform_1i(&self, name: &str, v0: i32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform1i(
@@ -317,7 +317,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform2i(&self, name: &str, v0: i32, v1: i32) {
+    pub fn set_uniform_2i(&self, name: &str, v0: i32, v1: i32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform2i(
@@ -333,7 +333,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform1f(&self, name: &str, v0: f32) {
+    pub fn set_uniform_1f(&self, name: &str, v0: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform1f(
@@ -348,7 +348,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform2f(&self, name: &str, v0: f32, v1: f32) {
+    pub fn set_uniform_2f(&self, name: &str, v0: f32, v1: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform2f(
@@ -364,7 +364,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform3f(&self, name: &str, v0: f32, v1: f32, v2: f32) {
+    pub fn set_uniform_3f(&self, name: &str, v0: f32, v1: f32, v2: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform3f(
@@ -381,7 +381,7 @@ impl ShaderProgram {
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
-    pub fn set_uniform4f(&self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
+    pub fn set_uniform_4f(&self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
         let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
             gl::ProgramUniform4f(
@@ -397,6 +397,19 @@ impl ShaderProgram {
         #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
+    pub fn set_uniform_mat4fv(&self, name: &str, mat: &glam::Mat4) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            gl::ProgramUniformMatrix4fv(
+                self.id,
+                gl::GetUniformLocation(self.id, cname.as_ptr()),
+                1,
+                gl::FALSE,
+                &mat.to_cols_array()[0],
+            );
+        }
+    }
+
 
     // Binder shared between instances of the ShaderProgram structure
     fn binder() -> &'static Mutex<Binder> {

@@ -11,6 +11,6 @@ gl = "0.14.0"
 glfw = "0.52.0"
 image = "0.24.7"
 cli-clipboard = "0.4.0"
-
+glam = "0.24.2"
 [features]
 gl_debug = []
