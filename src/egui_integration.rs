@@ -408,7 +408,7 @@ impl EguiPainter {
 
         self.render_target.draw_elements_with_settings(
             gl::TRIANGLES,
-            mesh.indices.len() as _,
+            mesh.indices.len(),
             &self.shader_program,
             RenderSettings {
                 framebuffer_srgb: srgb,

@@ -765,7 +765,7 @@ impl Buffer {
     }
 
     /// Builds and binds OpenGL Buffer Object (uses gl::BufferData).
-    pub fn build<T>(target: GLenum, size: usize, usage: GLenum, data: *const T) -> Buffer {
+    pub fn build<T>(target: GLenum, usage: GLenum, size: usize, data: *const T) -> Buffer {
         let mut result = Self::new(target, usage);
 
         result.bind();
