@@ -1281,27 +1281,27 @@ impl RenderTarget {
         drawable_obj.draw();
     }
 
-    pub fn draw_arrays(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
+    pub fn draw_arrays(&self, mode: GLenum, size: usize, program: &ShaderProgram) {
         self.fb.bind();
 
         self.settings.set();
         program.bind();
         unsafe {
-            gl::DrawArrays(mode, 0, size);
+            gl::DrawArrays(mode, 0, size as GLsizei);
         }
     }
 
-    pub fn draw_arrays_with_settings(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram, settings: RenderSettings) {
+    pub fn draw_arrays_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
         self.settings.sum(&settings).set();
         program.bind();
         unsafe {
-            gl::DrawArrays(mode, 0, size);
+            gl::DrawArrays(mode, 0, size as GLsizei);
         }
     }
 
-    pub fn draw_elements(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram) {
+    pub fn draw_elements(&self, mode: GLenum, size: usize, program: &ShaderProgram) {
         self.fb.bind();
 
         self.settings.set();
@@ -1309,14 +1309,14 @@ impl RenderTarget {
         unsafe {
             gl::DrawElements(
                 mode,
-                size,
+                size as GLsizei,
                 gl::UNSIGNED_INT,
                 core::ptr::null()
             );
         }
     }
 
-    pub fn draw_elements_with_settings(&self, mode: GLenum, size: GLsizei, program: &ShaderProgram, settings: RenderSettings) {
+    pub fn draw_elements_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
         self.settings.sum(&settings).set();
@@ -1324,7 +1324,7 @@ impl RenderTarget {
         unsafe {
             gl::DrawElements(
                 mode,
-                size,
+                size as GLsizei,
                 gl::UNSIGNED_INT,
                 core::ptr::null()
             );
