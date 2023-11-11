@@ -368,24 +368,24 @@ impl EguiPainter {
         self.vao.bind();
 
         // Update buffers
-        self.ebo.buffer_data(
-            mesh.indices.len() * core::mem::size_of::<u32>(),
-            mesh.indices.as_ptr() as *const GLvoid,
+        self.ebo.buffer_data::<u32>(
+            mesh.indices.len(),
+            mesh.indices.as_ptr(),
         ).unwrap();
 
-        self.vbo_pos.buffer_data(
-            core::mem::size_of::<f32>() * positions.len(),
-            positions.as_ptr() as *const GLvoid,
+        self.vbo_pos.buffer_data::<f32>(
+            positions.len(),
+            positions.as_ptr(),
         ).unwrap();
 
-        self.vbo_col.buffer_data(
-            core::mem::size_of::<u8>() * colors.len(),
-            colors.as_ptr() as *const GLvoid,
+        self.vbo_col.buffer_data::<u8>(
+            colors.len(),
+            colors.as_ptr(),
         ).unwrap();
 
-        self.vbo_tex.buffer_data(
-            core::mem::size_of::<f32>() * tex_coords.len(),
-            tex_coords.as_ptr() as *const GLvoid,
+        self.vbo_tex.buffer_data::<f32>(
+            tex_coords.len(),
+            tex_coords.as_ptr(),
         ).unwrap();
 
         // Bind texture associated with the mesh

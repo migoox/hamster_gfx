@@ -1,6 +1,6 @@
 use std::sync::{OnceLock, Mutex};
 use std::io;
-use gl::types::{GLintptr, GLboolean, GLbyte, GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLintptr, GLboolean, GLbyte, GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use std::ffi::{c_void, CString};
 use std::fs::File;
 use std::io::Read;
@@ -765,13 +765,18 @@ impl Buffer {
     }
 
     /// Builds and binds OpenGL Buffer Object (uses gl::BufferData).
-    pub fn build(target: GLenum, size: usize, usage: GLenum, data: *const c_void) -> Buffer {
+    pub fn build<T>(target: GLenum, size: usize, usage: GLenum, data: *const T) -> Buffer {
         let mut result = Self::new(target, usage);
 
         result.bind();
 
         unsafe {
-            gl::BufferData(target, size as GLsizeiptr, data, usage);
+            gl::BufferData(
+                target,
+                (size * std::mem::size_of::<T>()) as GLsizeiptr,
+                data as *const c_void,
+                usage
+            );
         }
         result.size = size;
 
@@ -781,17 +786,17 @@ impl Buffer {
         result
     }
 
-    /// Builds empty buffer with the given `size` (uses gl::BufferData).
-    pub fn build_empty(target: GLenum, usage: GLenum, size: usize) -> Buffer {
-        Self::build(target, size, usage, core::ptr::null())
-    }
-
     /// Calls gl::BufferData. If a different VBO is currently binded, this function
     /// will bind `self`. Previous binding will not be restored!
-    pub fn buffer_data(&mut self, size: usize, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_data<T>(&mut self, size: usize, data: *const T) -> Result<(), String> {
         self.bind();
         unsafe {
-            gl::BufferData(self.target, size as _, data, self.usage);
+            gl::BufferData(
+                self.target,
+                (size * std::mem::size_of::<T>()) as GLsizeiptr,
+                data as *const c_void,
+                self.usage
+            );
         }
         self.size = size;
 
@@ -803,10 +808,15 @@ impl Buffer {
 
     /// Calls gl::BufferSubData. If a different VBO is currently binded, this function
     /// will bind `self` and do it's work. Previous binding will not be restored!
-    pub fn buffer_sub_data(&mut self, size: usize, offset: u32, data: *const c_void) -> Result<(), String> {
+    pub fn buffer_sub_data<T>(&mut self, size: usize, offset: usize, data: *const c_void) -> Result<(), String> {
         self.bind();
         unsafe {
-            gl::BufferSubData(self.target, offset as _, size as _, data);
+            gl::BufferSubData(
+                self.target,
+                (offset * std::mem::size_of::<T>()) as GLintptr,
+                (size * std::mem::size_of::<T>()) as GLsizeiptr,
+                data
+            );
         }
         self.size = size;
 
