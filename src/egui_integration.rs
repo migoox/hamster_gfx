@@ -147,7 +147,7 @@ impl EguiPainter {
             vbo_tex,
             ebo: Buffer::new(gl::ELEMENT_ARRAY_BUFFER, gl::STREAM_DRAW),
             textures: Rc::new(RefCell::new(HashMap::new())),
-            render_target: RenderTarget::build(RenderSettings {
+            render_target: RenderTarget::onscreen_with_settings(RenderSettings {
                 scissor_test: true,
                 blend: true,
                 blend_func_source_factor: gl::ONE,
@@ -276,10 +276,10 @@ impl EguiPainter {
                     Some(texture_data) => {
                         // Update a sub-region of an already allocated texture with the patch
                         texture_data.texture.tex_sub_image2d(
-                            x_offset as GLint,
-                            y_offset as GLint,
-                            width as GLsizei,
-                            height as GLsizei,
+                            x_offset,
+                            y_offset,
+                            width,
+                            height,
                             gl::RGBA,
                             &data,
                         );
@@ -300,9 +300,9 @@ impl EguiPainter {
 
                 // Buffer the data
                 texture.tex_image2d(
-                    width as GLsizei,
-                    height as GLsizei,
-                    gl::RGBA as GLint,
+                    width,
+                    height,
+                    gl::RGBA,
                     gl::RGBA,
                     &data,
                 );
@@ -507,9 +507,9 @@ impl EguiUserTexture {
         let data: Vec<u8> = data.iter().flat_map(|c| c.to_array()).collect();
 
         gl_texture.tex_image2d(
-            width as GLint,
-            height as GLint,
-            gl::RGBA as GLint,
+            width,
+            height,
+            gl::RGBA,
             gl::RGBA,
             data.as_bytes(),
         );
@@ -576,8 +576,8 @@ impl EguiUserTexture {
                 texture_data.texture.tex_sub_image2d(
                     0,
                     0,
-                    self.width as GLsizei,
-                    self.height as GLsizei,
+                    self.width,
+                    self.height,
                     gl::RGBA,
                     &data,
                 );

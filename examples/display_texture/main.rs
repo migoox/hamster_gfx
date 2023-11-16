@@ -146,7 +146,7 @@ fn main() {
     let mut clock = Instant::now();
 
     // Create a render target
-    let render_target = RenderTarget::build(RenderSettings {
+    let render_target = RenderTarget::onscreen_with_settings(RenderSettings {
         scissor_test: true,
         blend:true,
         ..Default::default()

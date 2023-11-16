@@ -445,6 +445,10 @@ pub struct Texture {
     filtering: GLenum,
     wrapping: GLenum,
 
+    internal_format: Option<GLenum>,
+    src_format: Option<GLenum>,
+    type_: Option<GLenum>,
+
     width: Option<usize>,
     height: Option<usize>,
 }
@@ -469,6 +473,9 @@ impl Texture {
             target,
             filtering,
             wrapping,
+            internal_format: None,
+            src_format: None,
+            type_: None,
             width: None,
             height: None,
         };
@@ -491,28 +498,69 @@ impl Texture {
     /// Calls gl::TexImage2D.
     pub fn tex_image2d(
         &mut self,
-        width: GLint,
-        height: GLint,
-        internal_format: GLint,
-        src_format: GLuint,
+        width: usize,
+        height: usize,
+        internal_format: GLenum,
+        src_format: GLenum,
         bytes: &[u8],
+    ) {
+        self.raw_tex_image2d(
+            width,
+            height,
+            internal_format,
+            src_format,
+            gl::UNSIGNED_BYTE,
+            bytes.as_ptr() as * const _,
+        );
+    }
+
+    pub fn tex_image2d_null(
+        &mut self,
+        width: usize,
+        height: usize,
+        internal_format: GLenum,
+        src_format: GLenum,
+        type_: GLenum,
+    ) {
+        self.raw_tex_image2d(
+            width,
+            height,
+            internal_format,
+            src_format,
+            type_,
+            std::ptr::null() as *const c_void,
+        );
+    }
+
+    pub fn raw_tex_image2d(
+        &mut self,
+        width: usize,
+        height: usize,
+        internal_format: GLenum,
+        src_format: GLenum,
+        type_: GLenum,
+        ptr: *const c_void,
     ) {
         self.bind();
 
-        self.width = Some(width as usize);
-        self.height = Some(height as usize);
+        self.width = Some(width);
+        self.height = Some(height);
+
+        self.internal_format = Some(internal_format);
+        self.src_format = Some(src_format);
+        self.type_ = Some(type_);
 
         unsafe {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                internal_format,
-                width,
-                height,
+                internal_format as GLint,
+                width as GLint,
+                height as GLint,
                 0,
                 src_format,
-                gl::UNSIGNED_BYTE,
-                bytes.as_ptr() as *const _,
+                type_,
+                ptr,
             );
         }
 
@@ -533,6 +581,18 @@ impl Texture {
         ))
     }
 
+    pub fn get_internal_format(&self) -> Option<GLenum> {
+        self.internal_format.clone()
+    }
+
+    pub fn get_src_format(&self) -> Option<GLenum> {
+        self.src_format.clone()
+    }
+
+    pub fn get_type(&self) -> Option<GLenum> {
+        self.type_.clone()
+    }
+
     pub fn get_filtering(&self) -> GLenum {
         self.filtering
     }
@@ -549,6 +609,10 @@ impl Texture {
 
         self.width = Some(img.width() as usize);
         self.height = Some(img.height() as usize);
+
+        self.internal_format = Some(gl::RGBA);
+        self.src_format = Some(gl::RGBA);
+        self.type_ = Some(gl::UNSIGNED_BYTE);
 
         unsafe {
             use image::EncodableLayout;
@@ -580,6 +644,10 @@ impl Texture {
         self.width = Some(img.width() as usize);
         self.height = Some(img.height() as usize);
 
+        self.internal_format = Some(gl::RGBA);
+        self.src_format = Some(gl::RGBA);
+        self.type_ = Some(gl::UNSIGNED_BYTE);
+
         unsafe {
             use image::EncodableLayout;
             gl::TexImage2D(
@@ -602,10 +670,10 @@ impl Texture {
     }
     pub fn tex_sub_image2d(
         &self,
-        x_offset: GLint,
-        y_offset: GLint,
-        width: GLsizei,
-        height: GLsizei,
+        x_offset: usize,
+        y_offset: usize,
+        width: usize,
+        height: usize,
         format: GLuint,
         bytes: &[u8],
     ) {
@@ -614,12 +682,12 @@ impl Texture {
             gl::TexSubImage2D(
                 gl::TEXTURE_2D,
                 0,
-                x_offset,
-                y_offset,
-                width,
-                height,
+                x_offset as _,
+                y_offset as _,
+                width as _ ,
+                height as _,
                 format,
-                gl::UNSIGNED_BYTE,
+                self.type_.expect("Type is unknown."),
                 bytes.as_ptr() as *const _,
             )
         }
@@ -982,29 +1050,149 @@ impl Drop for VertexArray {
 
 pub struct FrameBuffer {
     id: GLuint,
+
+    width: usize,
+    height: usize,
+
+    default: bool,
+
+    depth_texture: Option<Texture>,
+    color_texture: Option<Texture>,
 }
 
 impl FrameBuffer {
+    /// Returns handle to the default framebuffer with id 0
     pub fn get_onscreen() -> FrameBuffer {
         FrameBuffer {
             id: 0,
+            default: true,
+            width: 0,
+            height: 0,
+            depth_texture: None,
+            color_texture: None,
         }
     }
 
-    pub fn new_offscreen() -> FrameBuffer {
+    /// Returns handle to the offscreen framebuffer with id > 0
+    pub fn new_offscreen(width:usize, height: usize) -> FrameBuffer {
         let mut id = 0;
         unsafe {
             gl::GenFramebuffers(1, &mut id);
         }
         FrameBuffer {
-            id
+            id,
+            default: false,
+            width,
+            height,
+            depth_texture: None,
+            color_texture: None
         }
     }
 
+    /// Binds and checks whether the framebuffer is ready to use. (Uses glCheckFrameBufferStatus)
     pub fn is_completed(&self) -> bool {
         self.bind();
         unsafe {
             return gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE;
+        }
+    }
+
+    pub fn attach_depth_buffer(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+
+        self.bind();
+
+        let mut depth_texture = Texture::new(
+            gl::TEXTURE_2D,
+            gl::LINEAR,
+            gl::CLAMP_TO_EDGE,
+        );
+
+        depth_texture.tex_image2d_null(
+            self.width,
+            self.height,
+            gl::DEPTH_COMPONENT,
+            gl::DEPTH_COMPONENT,
+            gl::FLOAT
+        );
+
+        unsafe {
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                depth_texture.id,
+                0
+            );
+        }
+
+        self.depth_texture = Some(depth_texture);
+    }
+
+    pub fn attach_color_buffer(
+        &mut self,
+        texture_filter: GLenum,
+        texture_internal_format: GLenum,
+        texture_src_format: GLenum,
+        texture_type: GLenum,
+    ) {
+        assert!(!self.default, "Can't attach color buffer to the default framebuffer");
+
+        self.bind();
+
+        let mut color_texture = Texture::new(
+            gl::TEXTURE_2D,
+            texture_filter,
+            gl::CLAMP_TO_EDGE,
+        );
+
+        color_texture.tex_image2d_null(
+            self.width,
+            self.height,
+            texture_internal_format,
+            texture_src_format,
+            texture_type,
+        );
+
+        unsafe {
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                color_texture.id,
+                0
+            );
+        }
+
+        self.color_texture = Some(color_texture);
+    }
+
+    /// Allows reading pixel from the color buffer.
+    pub fn read_pixel(&self, x: usize, y: usize, ptr: *mut c_void) {
+        assert!(0 <= x && x < self.width &&
+                    0 <= y && y < self.height,
+                "Pixel coordinates are out of bounds.");
+
+        self.bind();
+
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            gl::ReadPixels(
+                x as GLint,
+                y as GLint,
+                1,
+                1,
+                self.color_texture
+                    .as_ref()
+                    .expect("Color buffer is not attached.")
+                    .src_format.expect("Source format is unknown."),
+                self.color_texture
+                    .as_ref()
+                    .expect("Color buffer is not attached.")
+                    .type_.expect("Source format is unknown."),
+                ptr
+            );
+            gl::ReadBuffer(gl::NONE);
         }
     }
 
@@ -1204,29 +1392,38 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    /// Creates new on screen render target.
-    pub fn new() -> RenderTarget {
+    /// Creates new on screen render target (with the handle to default framebuffer, with id 0).
+    pub fn onscreen() -> RenderTarget {
         RenderTarget {
             fb: FrameBuffer::get_onscreen(),
             settings: RenderSettings::default(),
         }
     }
 
-    pub fn build(settings: RenderSettings) -> RenderTarget {
+    /// Creates new on screen render target (with the handle to default framebuffer, with id 0) with
+    /// the `settings`.
+    pub fn onscreen_with_settings(settings: RenderSettings) -> RenderTarget {
         RenderTarget {
             fb: FrameBuffer::get_onscreen(),
             settings,
         }
     }
 
-    pub fn new_offscreen() -> RenderTarget {
-        todo!();
+    pub fn offscreen(offscreen_fb: FrameBuffer) -> RenderTarget {
+        assert!(!offscreen_fb.default, "Given framebuffer is not an offscreen framebuffer.");
         RenderTarget {
-            fb: FrameBuffer::new_offscreen(),
+            fb: offscreen_fb,
             settings: RenderSettings::default(),
         }
     }
 
+    pub fn offscreen_with_settings(offscreen_fb: FrameBuffer, settings: RenderSettings) -> RenderTarget {
+        assert!(!offscreen_fb.default, "Given framebuffer is not an offscreen framebuffer.");
+        RenderTarget {
+            fb: offscreen_fb,
+            settings,
+        }
+    }
     pub fn clear(&self, color: Color) {
         self.fb.bind();
 
