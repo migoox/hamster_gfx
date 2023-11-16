@@ -226,7 +226,7 @@ fn main() {
         egui_io.handle_platform_output(platform_output, &mut window);
 
         // RENDER
-        render_target.clear(Color::rgb(0.2, 0.8, 1.0));
+        render_target.clear_with_color(Color::rgb(0.2, 0.8, 1.0));
 
         // Draw a rectangle
         vao.bind();

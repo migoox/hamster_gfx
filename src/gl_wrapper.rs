@@ -1424,16 +1424,25 @@ impl RenderTarget {
             settings,
         }
     }
-    pub fn clear(&self, color: Color) {
+    pub fn clear_with_color(&self, color: Color) {
         self.fb.bind();
 
         self.settings.set();
         unsafe {
             gl::ClearColor(color.r, color.g, color.b, color.a);
-            let mut bitfield = gl::COLOR_BUFFER_BIT;
-            if self.settings.depth_buffer {
-                bitfield |= gl::DEPTH_BUFFER_BIT;
-            }
+        }
+
+        self.clear();
+    }
+    pub fn clear(&self) {
+        self.fb.bind();
+
+        let mut bitfield = gl::COLOR_BUFFER_BIT;
+        if self.settings.depth_buffer {
+            bitfield |= gl::DEPTH_BUFFER_BIT;
+        }
+
+        unsafe {
 
             gl::Clear(bitfield);
         }
