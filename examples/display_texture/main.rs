@@ -1,10 +1,10 @@
-use glfw::{Context, Glfw, WindowEvent};
+use glfw::{Context, fail_on_errors, Glfw, GlfwReceiver, WindowEvent};
 use std::time::Instant;
 use core::default::Default;
-use std::mem::size_of_val;
 use std::path::Path;
 use std::sync::mpsc::Receiver;
 use egui::Color32;
+use egui::load::SizedTexture;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
 use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, FrameBuffer, VertexArray, Texture, RenderTarget, Color, RenderSettings};
@@ -14,7 +14,7 @@ const SCREEN_HEIGHT: u32 = 760;
 const SIN_PIC_WIDTH: usize = 200;
 const SIN_PIC_HEIGHT: usize = 200;
 
-fn init_glfw_window(glfw: &mut Glfw) -> (glfw::Window, Receiver<(f64, WindowEvent)>) {
+fn init_glfw_window(glfw: &mut Glfw) -> (glfw::PWindow, GlfwReceiver<(f64, WindowEvent)>) {
     // Set window hints
     glfw.window_hint(glfw::WindowHint::Resizable(true));
 
@@ -47,7 +47,7 @@ fn init_glfw_window(glfw: &mut Glfw) -> (glfw::Window, Receiver<(f64, WindowEven
 }
 
 fn main() {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let mut glfw = glfw::init(fail_on_errors!()).unwrap();
     let (mut window, events) = init_glfw_window(&mut glfw);
 
     // Prepare OpenGL context
@@ -204,14 +204,14 @@ fn main() {
                 });
             });
 
-            ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
+            ui.add(egui::Image::from_texture(SizedTexture::new(egui_txt.get_id(), egui_txt.get_size())));
             ui.separator();
             ui.label(" ");
             ui.text_edit_multiline(&mut test_str);
             ui.label(" ");
             ui.add(egui::Slider::new(&mut amplitude, 0.0..=50.0).text("Amplitude"));
             ui.label(" ");
-            ui.add(egui::Image::new(egui_sin_txt.get_id(), egui_sin_txt.get_size()));
+            ui.add(egui::Image::from_texture(SizedTexture::new(egui_sin_txt.get_id(), egui_sin_txt.get_size())));
         });
 
 

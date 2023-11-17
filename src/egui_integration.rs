@@ -72,6 +72,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
+use egui::load::SizedTexture;
 use gl::types::{GLint, GLsizei, GLvoid};
 use glfw::Cursor;
 use image::EncodableLayout;
@@ -427,6 +428,7 @@ impl EguiPainter {
 /// must be set to `false`.
 /// ## Example
 /// ```rust
+/// use egui::load::SizedTexture;
 /// use hamster_gfx::egui_integration::{EguiUserTexture, EguiPainter, EguiIOHandler};
 /// // ...
 /// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -449,7 +451,7 @@ impl EguiPainter {
 ///     &mut egui_painter,
 ///     &std::path::Path::new("path/to/your/image.png"),
 ///     false,
-/// );
+/// ).unwrap();
 /// // ...
 /// while !window.should_close() {
 ///     // ...
@@ -457,7 +459,7 @@ impl EguiPainter {
 ///
 ///     egui::Window::new("Egui window").show(&egui_ctx, |ui| {
 ///         // Display Image with the texture
-///         ui.add(egui::Image::new(egui_txt.get_id(), egui_txt.get_size()));
+///         ui.add(egui::Image::new(SizedTexture::new(egui_txt.get_id(), egui_txt.get_size())));
 ///     });
 ///
 ///     let egui::FullOutput {
