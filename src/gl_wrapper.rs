@@ -262,9 +262,8 @@ impl ShaderProgram {
     /// Sets glsl's sampler uniform with `name` to `unit`.
     /// This function calls set_uniform1i, which uses gl::ProgramUniform* command family, which means
     /// that there is no need to bind ShaderProgram, so this function won't bind anything.
-    pub fn activate_sampler(&self, name: &str, unit: u32) -> Result<(), String> {
+    pub fn activate_sampler(&self, name: &str, unit: u32) {
         self.set_uniform_1i(name, unit as i32);
-        Ok(())
     }
 
     /// This function is a gl::ProgramUniform* wrapper.
