@@ -1042,6 +1042,7 @@ pub struct FrameBuffer {
 
     depth_texture: Option<Texture>,
     color_texture: Option<Texture>,
+    stencil_texture: Option<Texture>,
 }
 
 impl FrameBuffer {
@@ -1069,7 +1070,8 @@ impl FrameBuffer {
             width,
             height,
             depth_texture: None,
-            color_texture: None
+            color_texture: None,
+            stencil_texture: None,
         }
     }
 
@@ -1081,41 +1083,83 @@ impl FrameBuffer {
         }
     }
 
-    pub fn attach_depth_buffer(&mut self) {
-        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
-
+    fn attach_texture(
+        &mut self,
+        filtering: GLenum,
+        internal_format: GLenum,
+        src_format: GLenum,
+        type_: GLenum,
+        attachment: GLenum,
+    ) -> Texture {
+        assert!(!self.default, "Can't attach a texture to a default framebuffer");
         self.bind();
 
-        let mut depth_texture = Texture::new(
+        let mut texture = Texture::new(
             gl::TEXTURE_2D,
-            gl::LINEAR,
+            filtering,
             gl::CLAMP_TO_EDGE,
         );
 
-        depth_texture.tex_image2d_null(
+        texture.tex_image2d_null(
             self.width,
             self.height,
-            gl::DEPTH_COMPONENT,
-            gl::DEPTH_COMPONENT,
-            gl::FLOAT
+            internal_format,
+            src_format,
+            type_,
         );
 
         unsafe {
             gl::FramebufferTexture2D(
                 gl::FRAMEBUFFER,
-                gl::DEPTH_ATTACHMENT,
+                attachment,
                 gl::TEXTURE_2D,
-                depth_texture.id,
+                texture.id,
                 0
             );
         }
 
         check_opengl_errors();
 
-        self.depth_texture = Some(depth_texture);
+        texture
     }
 
-    pub fn attach_color_buffer(
+    pub fn attach_stencil_buffer_as_texture(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+        self.stencil_texture = Some(self.attach_texture(
+            gl::LINEAR,
+            gl::STENCIL_INDEX8,
+            gl::STENCIL_INDEX,
+            gl::UNSIGNED_BYTE,
+            gl::STENCIL_ATTACHMENT,
+        ));
+    }
+
+    pub fn attach_stencil_buffer_as_renderbuffer(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+        self.bind();
+
+        todo!();
+    }
+
+    pub fn attach_depth_buffer_as_texture(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+        self.depth_texture = Some(self.attach_texture(
+            gl::LINEAR,
+            gl::DEPTH_COMPONENT,
+            gl::DEPTH_COMPONENT,
+            gl::FLOAT,
+            gl::DEPTH_ATTACHMENT,
+        ));
+    }
+
+    pub fn attach_depth_buffer_as_renderbuffer(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+        self.bind();
+
+        todo!();
+    }
+
+    pub fn attach_color_buffer_as_texture(
         &mut self,
         texture_filter: GLenum,
         texture_internal_format: GLenum,
@@ -1123,40 +1167,38 @@ impl FrameBuffer {
         texture_type: GLenum,
     ) {
         assert!(!self.default, "Can't attach color buffer to the default framebuffer");
-
-        self.bind();
-
-        let mut color_texture = Texture::new(
-            gl::TEXTURE_2D,
+        self.color_texture = Some(self.attach_texture(
             texture_filter,
-            gl::CLAMP_TO_EDGE,
-        );
-
-        color_texture.tex_image2d_null(
-            self.width,
-            self.height,
             texture_internal_format,
             texture_src_format,
             texture_type,
-        );
-
-        unsafe {
-            gl::FramebufferTexture2D(
-                gl::FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                color_texture.id,
-                0
-            );
-        }
-        check_opengl_errors();
-
-        self.color_texture = Some(color_texture);
+            gl::COLOR_ATTACHMENT0,
+        ));
     }
 
-    pub fn color_buffer_as_ref_texture(&self) -> Option<&Texture>{
+    pub fn attach_color_buffer_as_renderbuffer(&mut self) {
+        assert!(!self.default, "Can't attach depth buffer to the default framebuffer");
+        self.bind();
+
+        todo!();
+    }
+
+    pub fn color_buffer_as_ref_texture(&self) -> &Texture {
         assert!(!self.default, "Framebuffer is not an offscreen framebuffer.");
-        self.color_texture.as_ref()
+        assert!(self.depth_texture.is_some(), "Color buffer is not attached or is attached as renderbuffer.");
+        self.color_texture.as_ref().unwrap()
+    }
+
+    pub fn depth_buffer_as_ref_texture(&self) -> &Texture {
+        assert!(!self.default, "Framebuffer is not an offscreen framebuffer.");
+        assert!(self.depth_texture.is_some(), "Depth buffer is not attached or is attached as renderbuffer.");
+        self.depth_texture.as_ref().unwrap()
+    }
+
+    pub fn stencil_buffer_as_ref_texture(&self) -> &Texture {
+        assert!(!self.default, "Framebuffer is not an offscreen framebuffer.");
+        assert!(self.depth_texture.is_some(), "Stencil buffer is not attached or is attached as renderbuffer.");
+        self.depth_texture.as_ref().unwrap()
     }
 
     /// Allows reading pixel from the color buffer.
