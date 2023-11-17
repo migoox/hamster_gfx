@@ -1329,6 +1329,9 @@ pub struct RenderSettings {
 
     // Scissor test
     pub scissor_test: bool,
+
+    // Polygon mode
+    pub polygon_mode: GLenum,
 }
 
 impl Default for RenderSettings {
@@ -1362,6 +1365,8 @@ impl Default for RenderSettings {
             framebuffer_srgb: false,
 
             scissor_test: false,
+
+            polygon_mode: gl::FILL,
         }
     }
 }
@@ -1414,12 +1419,18 @@ impl RenderSettings {
         RenderSettings {
             depth_buffer: self.depth_buffer || other.depth_buffer,
             framebuffer_srgb: self.framebuffer_srgb || other.framebuffer_srgb,
-            viewport: self.viewport.clone(),
+
+            viewport: other.viewport.clone(),
+
             blend: self.blend || other.blend,
-            blend_func_source_factor: self.blend_func_source_factor,
-            blend_func_destination_factor: self.blend_func_destination_factor,
+
+            blend_func_source_factor: other.blend_func_source_factor,
+            blend_func_destination_factor: other.blend_func_destination_factor,
+
             scissor_test: self.scissor_test || other.scissor_test,
-            scissor: self.scissor.clone(),
+            scissor: other.scissor.clone(),
+
+            polygon_mode: other.polygon_mode,
         }
     }
 }
