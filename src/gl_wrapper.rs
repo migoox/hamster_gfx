@@ -870,7 +870,6 @@ impl Buffer {
                 data
             );
         }
-        self.size = size;
 
         check_opengl_errors();
     }
