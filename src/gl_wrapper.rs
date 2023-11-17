@@ -1167,6 +1167,11 @@ impl FrameBuffer {
         self.color_texture = Some(color_texture);
     }
 
+    pub fn color_buffer_as_ref_texture(&self) -> Option<&Texture>{
+        assert!(!self.default, "Framebuffer is not an offscreen framebuffer.");
+        self.color_texture.as_ref()
+    }
+
     /// Allows reading pixel from the color buffer.
     pub fn read_pixel(&self, x: usize, y: usize, ptr: *mut c_void) {
         assert!(0 <= x && x < self.width &&
