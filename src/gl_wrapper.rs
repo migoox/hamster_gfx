@@ -397,6 +397,8 @@ impl ShaderProgram {
                 &mat.to_cols_array()[0],
             );
         }
+
+        check_opengl_errors();
     }
 
 
@@ -675,6 +677,8 @@ impl Texture {
                 bytes.as_ptr() as *const _,
             )
         }
+
+        check_opengl_errors();
     }
 
     /// Activates the texture on the given texture `unit`.
@@ -693,6 +697,7 @@ impl Texture {
 
         unsafe {
             gl::ActiveTexture(((gl::TEXTURE0 as u32) + unit) as GLenum);
+            check_opengl_errors();
 
             // Bind texture globally (bind it to the context in order to modify storage/parameters)
             // This call is necessary, since binder should keep track of the current global bind
@@ -703,6 +708,7 @@ impl Texture {
             if !gl_bind_called {
                 gl::BindTexture(self.target, self.id);
             }
+            check_opengl_errors();
         }
     }
 
@@ -1104,6 +1110,8 @@ impl FrameBuffer {
             );
         }
 
+        check_opengl_errors();
+
         self.depth_texture = Some(depth_texture);
     }
 
@@ -1141,6 +1149,7 @@ impl FrameBuffer {
                 0
             );
         }
+        check_opengl_errors();
 
         self.color_texture = Some(color_texture);
     }
@@ -1175,6 +1184,9 @@ impl FrameBuffer {
                     .type_.expect("Source format is unknown."),
                 ptr
             );
+
+            check_opengl_errors();
+
             gl::ReadBuffer(gl::NONE);
         }
     }
@@ -1323,6 +1335,7 @@ impl RenderSettings {
                 gl::Disable(for_what);
             }
         }
+        check_opengl_errors();
     }
 
     fn set(&self) {
