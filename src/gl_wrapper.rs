@@ -1412,6 +1412,10 @@ impl RenderSettings {
                     self.scissor.height,
                 );
             }
+
+            unsafe {
+                gl::PolygonMode(gl::FRONT_AND_BACK, self.polygon_mode);
+            }
         }
     }
 
