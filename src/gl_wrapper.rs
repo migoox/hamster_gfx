@@ -1055,6 +1055,7 @@ impl FrameBuffer {
             height: 0,
             depth_texture: None,
             color_texture: None,
+            stencil_texture: None,
         }
     }
 
