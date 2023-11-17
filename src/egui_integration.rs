@@ -212,7 +212,7 @@ impl EguiPainter {
             self.canvas_height as f32 / self.native_pixels_per_point,
         );
 
-        self.shader_program.activate_sampler("u_sampler", 0).unwrap();
+        self.shader_program.activate_sampler("u_sampler", 0);
 
         // Iterate through the clipped primitives produced by egui and paint them
         for ClippedPrimitive {

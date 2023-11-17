@@ -140,7 +140,7 @@ fn main() {
     texture.tex_image2d_from_path(&Path::new("resources/images/hamster.png")).unwrap();
 
     // Send texture unit value to the texture sampler
-    program.activate_sampler("u_texture", 3).unwrap();
+    program.activate_sampler("u_texture", 3);
 
     // Start a clock
     let mut clock = Instant::now();
