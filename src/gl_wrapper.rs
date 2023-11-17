@@ -1429,6 +1429,11 @@ impl RenderTarget {
             settings,
         }
     }
+
+    pub fn framebuffer_as_ref(&self) -> &FrameBuffer {
+        &self.fb
+    }
+
     pub fn clear_with_color(&self, color: Color) {
         self.fb.bind();
 
@@ -1439,6 +1444,7 @@ impl RenderTarget {
 
         self.clear();
     }
+
     pub fn clear(&self) {
         self.fb.bind();
 
