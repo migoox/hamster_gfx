@@ -2,8 +2,8 @@
 //! This module provides utility that allows simple gl and glfw integration with the egui library.
 //! ## Usage
 //! ```rust
-//! use glfw::Context;
-//! let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+//! use glfw::{Context, fail_on_errors};
+//! let mut glfw = glfw::init(fail_on_errors!()).unwrap();
 //! // ...
 //! let (mut window, events) = glfw
 //!  .create_window(
@@ -115,7 +115,7 @@ pub struct EguiPainter {
 
 impl EguiPainter {
     /// Creates a new instance of EguiPainter.
-    pub fn new(glfw_window: &glfw::Window) -> EguiPainter {
+    pub fn new(glfw_window: &glfw::PWindow) -> EguiPainter {
         let vs = Shader::compile_from_path(&Path::new("resources/egui_shaders/vertex.vert"), gl::VERTEX_SHADER)
             .expect("Painter couldn't load the vertex egui_shader");
         let fs = Shader::compile_from_path(&Path::new("resources/egui_shaders/fragment.frag"), gl::FRAGMENT_SHADER)
@@ -124,9 +124,9 @@ impl EguiPainter {
         let shader_program = ShaderProgram::link(&vs, &fs);
 
         let mut vao = VertexArray::new();
-        let mut vbo_pos = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
-        let mut vbo_col = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
-        let mut vbo_tex = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let vbo_pos = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let vbo_col = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
+        let vbo_tex = Buffer::new(gl::ARRAY_BUFFER, gl::STREAM_DRAW);
 
         let mut vbl = VertexBufferLayout::new();
         vbl.push_attrib(0, VertexAttrib::new(2, gl::FLOAT, gl::FALSE));
@@ -164,7 +164,7 @@ impl EguiPainter {
     }
 
     /// Updates screen rectangle and native pixels per point.
-    pub fn update(&mut self, glfw_window: &glfw::Window) {
+    pub fn update(&mut self, glfw_window: &glfw::PWindow) {
         (self.canvas_width, self.canvas_height) = glfw_window.get_framebuffer_size();
         self.native_pixels_per_point = glfw_window.get_content_scale().0;
     }
@@ -429,9 +429,10 @@ impl EguiPainter {
 /// ## Example
 /// ```rust
 /// use egui::load::SizedTexture;
+/// use glfw::fail_on_errors;
 /// use hamster_gfx::egui_integration::{EguiUserTexture, EguiPainter, EguiIOHandler};
 /// // ...
-/// let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+/// let mut glfw = glfw::init(fail_on_errors!()).unwrap();
 /// // Create GLFW window
 /// let (mut window, events) = glfw
 ///     .create_window(
@@ -606,7 +607,7 @@ impl EguiCursorManager {
     }
 
     // Changes the current cursor
-    pub fn set_cursor(&mut self, cursor_icon: egui::CursorIcon, glfw_window: &mut glfw::Window) {
+    pub fn set_cursor(&mut self, cursor_icon: egui::CursorIcon, glfw_window: &mut glfw::PWindow) {
         let st_cursor = Self::translate_eguicursor_to_glfwcursor(cursor_icon);
 
         if let Some(c) = self.last_cursor {
@@ -657,7 +658,7 @@ pub struct EguiIOHandler {
 
 impl EguiIOHandler {
     /// Creates a new instance of an EguiIOHandler.
-    pub fn new(glfw_window: &glfw::Window) -> EguiIOHandler {
+    pub fn new(glfw_window: &glfw::PWindow) -> EguiIOHandler {
         let (width, height) = glfw_window.get_framebuffer_size();
         EguiIOHandler {
             pointer_pos: Pos2::new(0f32, 0f32),
@@ -803,7 +804,7 @@ impl EguiIOHandler {
 
     /// Handles egui platform output, that is returned every frame by [`egui::Context::end_frame()`] and [`egui::Context::run()`] functions.
     /// Mutable window borrow is required, since this function may change cursor image.
-    pub fn handle_platform_output(&mut self, platform_output: PlatformOutput, glfw_window: &mut glfw::Window) {
+    pub fn handle_platform_output(&mut self, platform_output: PlatformOutput, glfw_window: &mut glfw::PWindow) {
         if !platform_output.copied_text.is_empty() {
             self.copy_to_clipboard(platform_output.copied_text);
         }
@@ -811,7 +812,7 @@ impl EguiIOHandler {
     }
 
     /// Updates screen rectangle, native pixels per point and elapsed time.
-    pub fn update(&mut self, glfw_window: &glfw::Window, elapsed_time_as_secs: f64) {
+    pub fn update(&mut self, glfw_window: &glfw::PWindow, elapsed_time_as_secs: f64) {
         let (width, height) = glfw_window.get_framebuffer_size();
         let native_pixels_per_point = glfw_window.get_content_scale().0;
         self.input.screen_rect = Some(egui::Rect::from_min_size(

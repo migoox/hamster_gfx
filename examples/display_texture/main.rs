@@ -2,12 +2,11 @@ use glfw::{Context, fail_on_errors, Glfw, GlfwReceiver, WindowEvent};
 use std::time::Instant;
 use core::default::Default;
 use std::path::Path;
-use std::sync::mpsc::Receiver;
 use egui::Color32;
 use egui::load::SizedTexture;
 use hamster_gfx::egui_integration;
 use hamster_gfx::egui_integration::EguiUserTexture;
-use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, FrameBuffer, VertexArray, Texture, RenderTarget, Color, RenderSettings};
+use hamster_gfx::gl_wrapper::{Shader, ShaderProgram, VertexAttrib, Buffer, VertexBufferLayout, Bindable, VertexArray, Texture, RenderTarget, Color, RenderSettings};
 
 const SCREEN_WIDTH: u32 = 1280;
 const SCREEN_HEIGHT: u32 = 760;
@@ -126,7 +125,7 @@ fn main() {
     vao.attach_vbo(&vbo_tex, &vbl, 0).unwrap();
 
     // Initialize element buffer
-    let mut ebo_buff: [u32; 6] = [
+    let ebo_buff: [u32; 6] = [
         0, 1, 3,
         1, 2, 3
     ];
@@ -143,7 +142,7 @@ fn main() {
     program.activate_sampler("u_texture", 3);
 
     // Start a clock
-    let mut clock = Instant::now();
+    let clock = Instant::now();
 
     // Create a render target
     let render_target = RenderTarget::onscreen_with_settings(RenderSettings {

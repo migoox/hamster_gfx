@@ -1202,8 +1202,7 @@ impl FrameBuffer {
 
     /// Allows reading pixel from the color buffer.
     pub fn read_pixel(&self, x: usize, y: usize, ptr: *mut c_void) {
-        assert!(0 <= x && x < self.width &&
-                    0 <= y && y < self.height,
+        assert!(x < self.width && y < self.height,
                 "Pixel coordinates are out of bounds.");
 
         self.bind();
@@ -1265,9 +1264,9 @@ impl Drop for FrameBuffer {
     }
 }
 
-enum Primitives {
-    // TODO
-}
+// enum Primitives {
+//     // TODO
+// }
 
 pub trait Drawable {
     fn draw(&self);
@@ -1411,9 +1410,7 @@ impl RenderSettings {
                     self.scissor.width,
                     self.scissor.height,
                 );
-            }
 
-            unsafe {
                 gl::PolygonMode(gl::FRONT_AND_BACK, self.polygon_mode);
             }
         }
@@ -1544,7 +1541,7 @@ impl RenderTarget {
     pub fn draw_arrays_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
-        &settings.set();
+        settings.set();
         program.bind();
         unsafe {
             gl::DrawArrays(mode, 0, size as GLsizei);
@@ -1569,7 +1566,7 @@ impl RenderTarget {
     pub fn draw_elements_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
-        &settings.set();
+        settings.set();
         program.bind();
         unsafe {
             gl::DrawElements(
