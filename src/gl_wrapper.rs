@@ -147,7 +147,6 @@ impl Shader {
             gl::CompileShader(shader);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         let mut status = gl::FALSE as GLint;
@@ -220,7 +219,6 @@ impl ShaderProgram {
             gl::LinkProgram(program);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         let mut status = gl::FALSE as GLint;
@@ -228,7 +226,6 @@ impl ShaderProgram {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         // If program cannot be linked -> panic
@@ -281,7 +278,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -297,7 +293,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -312,7 +307,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -328,7 +322,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -343,7 +336,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -359,7 +351,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -376,7 +367,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -394,7 +384,6 @@ impl ShaderProgram {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
     pub fn set_uniform_mat4fv(&self, name: &str, mat: &glam::Mat4) {
@@ -465,7 +454,6 @@ impl Texture {
             gl::GenTextures(1, &mut id);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         let result = Texture {
@@ -489,7 +477,6 @@ impl Texture {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, result.filtering as GLint);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         result
@@ -564,7 +551,6 @@ impl Texture {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -629,7 +615,6 @@ impl Texture {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         Ok(())
@@ -663,7 +648,6 @@ impl Texture {
             );
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         Ok(())
@@ -831,7 +815,6 @@ impl Buffer {
             gl::GenBuffers(1, &mut id);
         }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         let result = Buffer {
@@ -867,7 +850,6 @@ impl Buffer {
         }
         self.size = size;
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -885,7 +867,6 @@ impl Buffer {
         }
         self.size = size;
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
     }
 
@@ -945,7 +926,6 @@ impl VertexArray {
 
         unsafe { gl::GenVertexArrays(1, &mut id); }
 
-        #[cfg(feature = "gl_debug")]
         check_opengl_errors();
 
         let result = VertexArray {
@@ -978,7 +958,6 @@ impl VertexArray {
                 gl::VertexAttribBinding(*attrib_index, self.curr_binding_index);
                 gl::EnableVertexAttribArray(*attrib_index);
 
-                #[cfg(feature = "gl_debug")]
                 check_opengl_errors();
             }
             relative_offset += attrib.get_size_in_bytes() as GLuint;
@@ -1003,7 +982,6 @@ impl VertexArray {
                 info.1,
                 info.0,
             );
-            #[cfg(feature = "gl_debug")]
             check_opengl_errors();
         }
     }
