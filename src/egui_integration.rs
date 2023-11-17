@@ -406,14 +406,13 @@ impl EguiPainter {
         self.vao.use_vbo(&self.vbo_tex);
         self.vao.use_ebo(&self.ebo);
 
+        let mut settings = self.render_target.get_settings();
+        settings.framebuffer_srgb = srgb;
         self.render_target.draw_elements_with_settings(
             gl::TRIANGLES,
             mesh.indices.len(),
             &self.shader_program,
-            RenderSettings {
-                framebuffer_srgb: srgb,
-                ..Default::default()
-            }
+            settings
         )
     }
 }

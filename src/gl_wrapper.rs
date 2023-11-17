@@ -1309,6 +1309,7 @@ impl Color {
 }
 
 
+#[derive(Clone)]
 pub struct RenderSettings {
     // Blending
     pub blend: bool,
@@ -1418,25 +1419,6 @@ impl RenderSettings {
             }
         }
     }
-
-    pub fn sum(&self, other: &RenderSettings) -> RenderSettings {
-        RenderSettings {
-            depth_buffer: self.depth_buffer || other.depth_buffer,
-            framebuffer_srgb: self.framebuffer_srgb || other.framebuffer_srgb,
-
-            viewport: other.viewport.clone(),
-
-            blend: self.blend || other.blend,
-
-            blend_func_source_factor: other.blend_func_source_factor,
-            blend_func_destination_factor: other.blend_func_destination_factor,
-
-            scissor_test: self.scissor_test || other.scissor_test,
-            scissor: other.scissor.clone(),
-
-            polygon_mode: other.polygon_mode,
-        }
-    }
 }
 
 pub struct RenderTarget {
@@ -1476,6 +1458,10 @@ impl RenderTarget {
             fb: offscreen_fb,
             settings,
         }
+    }
+
+    pub fn get_settings(&self) -> RenderSettings {
+        self.settings.clone()
     }
 
     pub fn framebuffer_as_ref(&self) -> &FrameBuffer {
@@ -1541,7 +1527,7 @@ impl RenderTarget {
     pub fn draw_with_settings(&self, drawable_obj: &dyn Drawable, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
-        self.settings.sum(&settings).set();
+        settings.set();
         program.bind();
         drawable_obj.draw();
     }
@@ -1559,7 +1545,7 @@ impl RenderTarget {
     pub fn draw_arrays_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
-        self.settings.sum(&settings).set();
+        &settings.set();
         program.bind();
         unsafe {
             gl::DrawArrays(mode, 0, size as GLsizei);
@@ -1584,7 +1570,7 @@ impl RenderTarget {
     pub fn draw_elements_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
         self.fb.bind();
 
-        self.settings.sum(&settings).set();
+        &settings.set();
         program.bind();
         unsafe {
             gl::DrawElements(
