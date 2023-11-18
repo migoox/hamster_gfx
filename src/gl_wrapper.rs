@@ -1551,6 +1551,8 @@ impl RenderTarget {
             gl::ClearColor(color.r, color.g, color.b, color.a);
         }
 
+        check_opengl_errors();
+
         self.clear();
     }
 
@@ -1563,9 +1565,10 @@ impl RenderTarget {
         }
 
         unsafe {
-
             gl::Clear(bitfield);
         }
+
+        check_opengl_errors();
     }
 
    pub fn set_blending_func(&mut self, source: GLenum, destination: GLenum) {
@@ -1615,6 +1618,8 @@ impl RenderTarget {
         unsafe {
             gl::DrawArrays(mode, 0, size as GLsizei);
         }
+
+        check_opengl_errors();
     }
 
     pub fn draw_arrays_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
@@ -1625,6 +1630,8 @@ impl RenderTarget {
         unsafe {
             gl::DrawArrays(mode, 0, size as GLsizei);
         }
+
+        check_opengl_errors();
     }
 
     pub fn draw_elements(&self, mode: GLenum, size: usize, program: &ShaderProgram) {
@@ -1640,6 +1647,8 @@ impl RenderTarget {
                 core::ptr::null()
             );
         }
+
+        check_opengl_errors();
     }
 
     pub fn draw_elements_with_settings(&self, mode: GLenum, size: usize, program: &ShaderProgram, settings: RenderSettings) {
@@ -1655,5 +1664,7 @@ impl RenderTarget {
                 core::ptr::null()
             );
         }
+
+        check_opengl_errors();
     }
 }
