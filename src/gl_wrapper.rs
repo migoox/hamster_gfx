@@ -474,13 +474,13 @@ impl ShaderProgram {
     }
 
     pub fn set_uniform_array_3fv(&self, name: &str, arr: &[glam::Vec3], arr_size: usize) {
-        let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
-            let location = gl::GetUniformLocation(self.id, cname.as_ptr());
             for i in 0..arr_size {
+                let curr_cname = CString::new(format!("{name}[{i}]").as_bytes()).unwrap();
+                let location = gl::GetUniformLocation(self.id, curr_cname.as_ptr());
                 gl::ProgramUniform3f(
                     self.id,
-                    location + i as i32,
+                    location,
                     arr[i].x,
                     arr[i].y,
                     arr[i].z,
@@ -492,16 +492,16 @@ impl ShaderProgram {
     }
 
     pub fn set_element_uniform_array_3fv(&self, name: &str, element: glam::Vec3, offset: usize) {
-        let cname = CString::new(name.as_bytes()).unwrap();
         unsafe {
-            let location = gl::GetUniformLocation(self.id, cname.as_ptr());
+            let curr_cname = CString::new(format!("{name}[{offset}]").as_bytes()).unwrap();
+            let location = gl::GetUniformLocation(self.id, curr_cname.as_ptr());
             gl::ProgramUniform3f(
                 self.id,
-                location + offset as i32,
+                location,
                 element.x,
                 element.y,
                 element.z,
-            );
+            )
         }
 
         check_opengl_errors();
