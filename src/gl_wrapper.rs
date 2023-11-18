@@ -491,6 +491,22 @@ impl ShaderProgram {
         check_opengl_errors();
     }
 
+    pub fn set_element_uniform_array_3fv(&self, name: &str, element: glam::Vec3, offset: usize) {
+        let cname = CString::new(name.as_bytes()).unwrap();
+        unsafe {
+            let location = gl::GetUniformLocation(self.id, cname.as_ptr());
+            gl::ProgramUniform3f(
+                self.id,
+                location + offset,
+                element.x,
+                element.y,
+                element.z,
+            );
+        }
+
+        check_opengl_errors();
+    }
+
 
     // Binder shared between instances of the ShaderProgram structure
     fn binder() -> &'static Mutex<Binder> {
