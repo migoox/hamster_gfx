@@ -201,26 +201,8 @@ pub struct ShaderProgram {
 }
 
 impl ShaderProgram {
-    /// Combines `vert_shader` and `frag_shader` in order to create an OpenGl egui_shaders program object
-    /// and binds the created ShaderProgram.
-    /// Function will panic with an OpenGL program info log in the case of failure.
-    /// Both vert_shader and frag_shader can be deleted after this call.
-    pub fn link(vert_shader: &Shader, frag_shader: &Shader) -> ShaderProgram {
-        assert!(
-            vert_shader.get_type() == gl::VERTEX_SHADER && frag_shader.get_type() == gl::FRAGMENT_SHADER,
-            "ShaderProgram link error -- vertex egui_shaders and fragment egui_shaders should be provided (types doesn't match)"
-        );
-
-        let program = unsafe { gl::CreateProgram() };
-
-        unsafe {
-            gl::AttachShader(program, vert_shader.id);
-            gl::AttachShader(program, frag_shader.id);
-            gl::LinkProgram(program);
-        }
-
-        check_opengl_errors();
-
+    // Panics if program cannot be linked
+    fn check_linker(program: GLuint) {
         let mut status = gl::FALSE as GLint;
         unsafe {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
@@ -251,6 +233,97 @@ impl ShaderProgram {
                 core::str::from_utf8(&buf).expect("ProgramInfoLog not valid utf8")
             );
         }
+    }
+
+    /// Combines `vert_shader` and `frag_shader` in order to
+    /// create an OpenGl shaders program object and binds the created ShaderProgram.
+    /// Function will panic with an OpenGL program info log in the case of failure.
+    /// Both vert_shader and frag_shader can be deleted after this call.
+    pub fn link(vert_shader: &Shader, frag_shader: &Shader) -> ShaderProgram {
+        assert!(
+            vert_shader.get_type() == gl::VERTEX_SHADER &&
+                frag_shader.get_type() == gl::FRAGMENT_SHADER,
+            "ShaderProgram link error -- types don't match"
+        );
+
+        let program = unsafe { gl::CreateProgram() };
+
+        unsafe {
+            gl::AttachShader(program, vert_shader.id);
+            gl::AttachShader(program, frag_shader.id);
+            gl::LinkProgram(program);
+        }
+
+        check_opengl_errors();
+
+        Self::check_linker(program);
+
+        let sprogram = ShaderProgram {
+            id: program,
+        };
+        sprogram.bind();
+        sprogram
+    }
+
+
+    /// Combines `vert_shader`, `tese_shader` and `frag_shader` in order to create an
+    /// OpenGl shaders program object and binds the created ShaderProgram.
+    /// Function will panic with an OpenGL program info log in the case of failure.
+    /// Shaders can be deleted after this call.
+    pub fn link_with_tese(vert_shader: &Shader, tese_shader: &Shader, frag_shader: &Shader) -> ShaderProgram {
+        assert!(
+            vert_shader.get_type() == gl::VERTEX_SHADER &&
+                frag_shader.get_type() == gl::FRAGMENT_SHADER &&
+                tese_shader.get_type() == gl::TESS_EVALUATION_SHADER,
+            "ShaderProgram link error -- shader types don't match"
+        );
+
+        let program = unsafe { gl::CreateProgram() };
+
+        unsafe {
+            gl::AttachShader(program, vert_shader.id);
+            gl::AttachShader(program, tese_shader.id);
+            gl::AttachShader(program, frag_shader.id);
+            gl::LinkProgram(program);
+        }
+
+        check_opengl_errors();
+
+        Self::check_linker(program);
+
+        let sprogram = ShaderProgram {
+            id: program,
+        };
+        sprogram.bind();
+        sprogram
+    }
+
+    /// Combines `vert_shader`, `tesc_shader`, `tese_shader` and `frag_shader` in order to create an
+    /// OpenGl shaders program object and binds the created ShaderProgram.
+    /// Function will panic with an OpenGL program info log in the case of failure.
+    /// Shaders can be deleted after this call.
+    pub fn link_with_tesc_tese(vert_shader: &Shader, tesc_shader: &Shader, tese_shader: &Shader, frag_shader: &Shader) -> ShaderProgram {
+        assert!(
+            vert_shader.get_type() == gl::VERTEX_SHADER &&
+                frag_shader.get_type() == gl::FRAGMENT_SHADER &&
+                tesc_shader.get_type() == gl::TESS_CONTROL_SHADER &&
+                tese_shader.get_type() == gl::TESS_EVALUATION_SHADER,
+            "ShaderProgram link error -- shader types don't match"
+        );
+
+        let program = unsafe { gl::CreateProgram() };
+
+        unsafe {
+            gl::AttachShader(program, vert_shader.id);
+            gl::AttachShader(program, tesc_shader.id);
+            gl::AttachShader(program, tese_shader.id);
+            gl::AttachShader(program, frag_shader.id);
+            gl::LinkProgram(program);
+        }
+
+        check_opengl_errors();
+
+        Self::check_linker(program);
 
         let sprogram = ShaderProgram {
             id: program,
