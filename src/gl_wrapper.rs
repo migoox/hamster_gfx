@@ -480,7 +480,7 @@ impl ShaderProgram {
             for i in 0..arr_size {
                 gl::ProgramUniform3f(
                     self.id,
-                    location + i,
+                    location + i as i32,
                     arr[i].x,
                     arr[i].y,
                     arr[i].z,
@@ -497,7 +497,7 @@ impl ShaderProgram {
             let location = gl::GetUniformLocation(self.id, cname.as_ptr());
             gl::ProgramUniform3f(
                 self.id,
-                location + offset,
+                location + offset as i32,
                 element.x,
                 element.y,
                 element.z,
