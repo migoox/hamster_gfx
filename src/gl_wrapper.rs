@@ -1404,6 +1404,9 @@ pub struct RenderSettings {
 
     // Polygon mode
     pub polygon_mode: GLenum,
+
+    // Patches
+    pub tesselation_patch_vertices: GLint,
 }
 
 impl Default for RenderSettings {
@@ -1439,6 +1442,8 @@ impl Default for RenderSettings {
             scissor_test: false,
 
             polygon_mode: gl::FILL,
+
+            tesselation_patch_vertices: 4,
         }
     }
 }
@@ -1485,6 +1490,7 @@ impl RenderSettings {
                 );
 
                 gl::PolygonMode(gl::FRONT_AND_BACK, self.polygon_mode);
+                gl::PatchParameteri(gl::PATCH_VERTICES, self.tesselation_patch_vertices);
             }
         }
     }
