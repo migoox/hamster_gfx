@@ -1430,6 +1430,11 @@ pub struct RenderSettings {
     // Depth buffer
     pub depth_buffer: bool,
 
+    // Cull face
+    pub cull_face: bool,
+    pub cull_face_type: GLenum,
+    pub cull_face_clockwiseness: GLenum,
+
     // SRGB Framebuffer
     pub framebuffer_srgb: bool,
 
@@ -1478,6 +1483,10 @@ impl Default for RenderSettings {
             polygon_mode: gl::FILL,
 
             tesselation_patch_vertices: 4,
+
+            cull_face: false,
+            cull_face_type: gl::FRONT,
+            cull_face_clockwiseness: gl::CCW,
         }
     }
 }
@@ -1508,6 +1517,7 @@ impl RenderSettings {
             Self::set_flag(self.depth_buffer, gl::DEPTH_TEST);
             Self::set_flag(self.framebuffer_srgb, gl::FRAMEBUFFER_SRGB);
             Self::set_flag(self.scissor_test, gl::SCISSOR_TEST);
+            Self::set_flag(self.cull_face, gl::CULL_FACE);
 
             unsafe {
                 gl::Viewport(
@@ -1525,6 +1535,9 @@ impl RenderSettings {
 
                 gl::PolygonMode(gl::FRONT_AND_BACK, self.polygon_mode);
                 gl::PatchParameteri(gl::PATCH_VERTICES, self.tesselation_patch_vertices);
+
+                gl::CullFace(self.cull_face_type);
+                gl::FrontFace(self.cull_face_clockwiseness);
             }
         }
     }
