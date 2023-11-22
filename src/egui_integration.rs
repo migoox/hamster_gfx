@@ -151,6 +151,7 @@ impl EguiPainter {
             render_target: RenderTarget::onscreen_with_settings(RenderSettings {
                 scissor_test: true,
                 blend: true,
+                cull_face: false,
                 blend_func_source_factor: gl::ONE,
                 blend_func_destination_factor: gl::ONE_MINUS_SRC_ALPHA,
                 ..Default::default()
