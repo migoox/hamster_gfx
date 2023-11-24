@@ -70,6 +70,7 @@ use std::path::Path;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 use egui::*;
 use egui::load::SizedTexture;
@@ -482,6 +483,11 @@ pub struct EguiUserTexture {
 }
 
 impl EguiUserTexture {
+    fn new_id() -> u64 {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        NEXT_ID.fetch_add(1, Ordering::Relaxed)
+
+    }
     /// Creates a new OpenGL texture and passes `data` to it's buffer. Returns
     /// new instance of an EguiUserTexture.
     pub fn new(
@@ -517,7 +523,7 @@ impl EguiUserTexture {
             data.as_bytes(),
         );
 
-        let id = TextureId::User(painter.textures.borrow().len() as u64);
+        let id = TextureId::User(Self::new_id());
         painter.textures.borrow_mut().insert(id, TextureData::new(gl_texture, srgb));
 
         EguiUserTexture {
@@ -535,7 +541,7 @@ impl EguiUserTexture {
             None => return Err("OpenGL Texture has no data.".to_string()),
         };
 
-        let id = TextureId::User(painter.textures.borrow().len() as u64);
+        let id = TextureId::User(Self::new_id());
         painter.textures.borrow_mut().insert(id, TextureData::new(gl_texture, srgb));
 
         Ok(EguiUserTexture {
